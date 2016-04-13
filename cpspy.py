@@ -1,5 +1,33 @@
 import numpy as np
 
+class DistFile(object):
+    def __init__(self, dfname=None):
+        try:
+            self.ReadDistFile(self, dfname);
+        except:
+            self.distArr=np.array([]);
+            self.dtArr=np.array([]);
+            self.nptsArr=np.array([]);
+            self.T0Arr=np.array([]);
+            self.VredArr=np.array([]);
+        return;
+    
+    def ReadDistFile(self, dfname):
+        """
+        Read Distance file 
+        DIST DT NPTS T0 VRED
+        """
+        InArr=np.loadtxt(dfname);
+        self.distArr=InArr[:,0];
+        self.dtArr=InArr[:,1];
+        self.nptsArr=InArr[:,2];
+        self.T0Arr=InArr[:,3];
+        self.VredArr=InArr[:,4];
+        
+        return
+    
+    
+    
 class StaInfo(object):
     """
     An object contains a station information several methods for station related analysis.
@@ -12,13 +40,17 @@ class StaInfo(object):
     dist    - distance
     -----------------------------------------------------------------------------------------------------
     """
-    def __init__(self, stacode=None, network='ME2D', x=None, y=None, dist=None):
+    def __init__(self, stacode=None, network='CPS', x=None, y=None, dist=None, npts=None,dt=None, T0=None, Vred=None):
 
         self.stacode=stacode;
         self.network=network;
         self.x=x;
         self.y=y;
         self.dist=dist;
+        self.npts=npts;
+        self.dt=dt;
+        self.T0=T0;
+        self.Vred=Vred;
         return;
     
 class StaLst(object):
@@ -70,6 +102,21 @@ class StaLst(object):
             msg = 'Append only supports a single StaInfo object as an argument.'
             raise TypeError(msg)
         return self
+    def ReadDistFile(self, dfname):
+        """
+        Read Distance file 
+        DIST DT NPTS T0 VRED
+        """
+        InArr=np.loadtxt(dfname);
+        distArr=InArr[:,0];
+        dtArr=InArr[:,1];
+        nptsArr=InArr[:,2];
+        T0Arr=InArr[:,3];
+        VredArr=InArr[:,4];
+        for i in np.arange(distArr.size):
+            self.append(StaInfo (stacode=stacode, dist=distArr[i], npts=nptsArr[i], dt=dtArr[i], T0=T0Arr[i], Vred=VredArr[i] ))
+        
+        return
     
     def ReadStaList(self, stafile):
         """
