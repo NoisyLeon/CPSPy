@@ -3,7 +3,7 @@ import numpy as np
 class DistFile(object):
     def __init__(self, dfname=None):
         try:
-            self.ReadDistFile(self, dfname);
+            self.read(dfname);
         except:
             self.distArr=np.array([]);
             self.dtArr=np.array([]);
@@ -12,7 +12,7 @@ class DistFile(object):
             self.VredArr=np.array([]);
         return;
     
-    def ReadDistFile(self, dfname):
+    def read(self, dfname):
         """
         Read Distance file 
         DIST DT NPTS T0 VRED
@@ -23,8 +23,33 @@ class DistFile(object):
         self.nptsArr=InArr[:,2];
         self.T0Arr=InArr[:,3];
         self.VredArr=InArr[:,4];
-        
         return
+    
+    def write(self, dfname):
+        outArr=np.append(self.distArr, self.dtArr);
+        outArr=np.append(outArr, self.nptsArr);
+        outArr=np.append(outArr, self.T0Arr);
+        outArr=np.append(outArr, self.VredArr);
+        outArr=outArr.reshape(5, self.distArr.size);
+        outArr=outArr.T;
+        np.savetxt(dfname, outArr, fmt='%f %f %d %f %f');
+        return;
+    
+    def add(self, dist, dt=0.1, N2=14, T0=-1.0, Vred=6.0):
+        self.distArr=np.append(self.distArr, dist);
+        self.dtArr=np.append(self.dtArr, dt);
+        self.nptsArr=np.append(self.nptsArr, 2**N2);
+        self.T0Arr=np.append(self.T0Arr, T0);
+        self.VredArr=np.append(self.VredArr, Vred);
+        return;
+    
+    def addEqualDist(self, dist0, dD, Nd, dt=0.1, N2=14, T0=-1.0, Vred=6.0):
+        self.distArr=np.append(self.distArr, np.arange(Nd)*dD+dist0 );
+        self.dtArr=np.append(self.dtArr, np.ones(Nd)*dt);
+        self.nptsArr=np.append(self.nptsArr, np.ones(Nd)*2**N2);
+        self.T0Arr=np.append(self.T0Arr, np.ones(Nd)*T0);
+        self.VredArr=np.append(self.VredArr, np.ones(Nd)*Vred);
+        return;
     
     
     
