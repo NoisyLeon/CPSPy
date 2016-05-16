@@ -51,6 +51,10 @@ class DistFile(object):
         self.VredArr=np.append(self.VredArr, np.ones(Nd)*Vred);
         return;
     
+
+    
+
+    
     
     
 class StaInfo(object):
