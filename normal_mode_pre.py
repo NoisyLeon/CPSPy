@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import cpspy
-dfile=cpspy.DistFile();
-dfile.addEqualDist(100, 100, 80)
+import cpsfile
+dfile=cpsfile.DistFile();
+dfile.addEqualDist(0, 10, 200)
 dfile.write('dfile')
