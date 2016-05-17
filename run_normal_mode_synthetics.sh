@@ -1,6 +1,8 @@
 #!/bin/bash
+
 sprep96 -HR 0 -HS 0 -M tak135sph.mod -d dfile -NMOD 1 -R
 sdisp96
+#Get ASCII disersion curve
 sdpsrf96 -R -PER -XMIN 0.1 -XMAX 100 -ASC
 sregn96 -NOQ
 spulse96 -d dfile -D -M 0 -p -l 4 > myf96
