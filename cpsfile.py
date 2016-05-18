@@ -102,19 +102,40 @@ class DispCurve(object):
         if verbose ==True:
             print 'Read dispersion curve for:', instr
         return
-        
     
-    
-class DispFile(object):
-    def __init__(self, dispfname=None):
-        self.DispLst=[]
-        # self.ModeLst=np.array([])
-        if os.path.isfile(dispfname):
-            self.Read(dispfname)
+    def write(self, outfname, datatype='phase'):
+        if datatype=='phase':
+            outArr=np.append(self.period, self.Vph)
+            outArr=outArr.reshape((2, self.period.size))
+            outArr=outArr.T
+            np.savetxt(outfname, outArr, fmt='%g')
+            print 'Write dispersion curve for:', self.header['type'], 'mode',self.header['mode']
+        else:
+            outArr=np.append(self.period, self.Vgr)
+            outArr=outArr.reshape((2, self.period.size))
+            outArr=outArr.T
+            np.savetxt(outfname, outArr, fmt='%g')
+            print 'Write dispersion curve for:', self.header['type'], 'mode',self.header['mode']
         return
     
-    def Read(self, dispfname=None):
+    def InterpDisp(self, T0=5., dT=1., NT=155):
+        Tinterp=T0+np.arange(NT)*dT
+        if self.Vph.size == self.period.size:
+            self.Vph=np.interp(Tinterp, self.period, self.Vph)
+        if self.Vgr.size == self.period.size:
+            self.Vgr=np.interp(Tinterp, self.period, self.Vgr)
+        self.period=Tinterp
+        return
         
+class DispFile(object):
+    def __init__(self, dispfname=None):
+        self.DispLst={}
+        # self.ModeLst=np.array([])
+        if os.path.isfile(dispfname):
+            self.read(dispfname)
+        return
+    
+    def read(self, dispfname=None):
         with open(dispfname, 'r') as f:
             for line in f.readlines():
                 cline=line.split()
@@ -122,7 +143,7 @@ class DispFile(object):
                     continue
                 if len(cline)==5:
                     try:
-                        self.DispLst.append(dispcurve)
+                        self.DispLst[dispcurve.header['mode']]=dispcurve
                         dispcurve=DispCurve()
                         dispcurve.gethdr(line)
                     except:
@@ -132,9 +153,15 @@ class DispFile(object):
                 if is_int(cline[0]):
                     dispcurve.period=np.append( dispcurve.period, float(cline[1]) )
                     dispcurve.Vph=np.append( dispcurve.Vph, float(cline[2]) )
-            self.DispLst.append(dispcurve)
+            self.DispLst[dispcurve.header['mode']]=dispcurve
         return
                 
+    def write(self, outfname, mode=0, T0=5., dT=1., NT=155 ):
+        if T0!=None and dT != None and NT !=None:
+            self.DispLst[mode].InterpDisp(T0=T0, dT=dT, NT=NT )
+        self.DispLst[mode].write(outfname)
+        return
+        
                     
     
     

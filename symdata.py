@@ -287,7 +287,7 @@ class ftanLst(object):
 
 class cpstrace(obspy.core.trace.Trace):
     """
-    sw4trace:
+    cpstrace:
     A derived class inherited from obspy.core.trace.Trace. This derived class have a variety of new member functions
     """
     def init_ftanParam(self):
@@ -579,7 +579,7 @@ class InputFtanParam(object): ###
         self.predV=np.array([])
 
 
-class sw4ASDF(pyasdf.ASDFDataSet):
+class cpsASDF(pyasdf.ASDFDataSet):
     
     def Readsac(self, stafile, datadir, comptype='u', datatype='displacement', verbose=False):
         """ Read SAC files into ASDF dataset according to given station list
