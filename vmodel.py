@@ -209,9 +209,35 @@ class Model1d(object):
                 self.frefsArr=np.append(self.frefsArr, float(cline[9]))
         return
     
-    def Perturb(self, dm, zmin=None, zmax=None, datatype='vs'):
+    def perturb(self, dm, zmin=-9999, zmax=9999, datatype='vs'):
+        index=(self.DepthArr<zmax) * (self.DepthArr>zmin)
+        print index
         if datatype=='vp':
-            self.
+            self.VpArr[index]=self.VpArr[index]*(1.+dm)
+        if datatype=='vs':
+            print self.VsArr[index]*(1.+dm)
+            self.VsArr[index]=self.VsArr[index]*(1.+dm)
+        if datatype=='rho':
+            self.rhoArr[index]=self.rhoArr[index]*(1.+dm)
+        if datatype=='qp':
+            self.QpArr[index]=self.QpArr[index]*(1.+dm)
+        if datatype=='qs':
+            self.QsArr[index]=self.QsArr[index]*(1.+dm)
+        if datatype=='etap':
+            self.etapArr[index]=self.etapArr[index]*(1.+dm)
+        if datatype=='etas':
+            self.etasArr[index]=self.etasArr[index]*(1.+dm)
+        if datatype=='frefp':
+            self.frefpArr[index]=self.frefpArr[index]*(1.+dm)
+        if datatype=='frefs':
+            self.frefsArr[index]=self.frefsArr[index]*(1.+dm)
+        ztop=self.DepthArr[index][0]
+        zbottom=self.DepthArr[index][-1]
+        print 'Top:', ztop, 'km Bottom:', zbottom,'km'
+        return
+    
+    
+
         
     
  
