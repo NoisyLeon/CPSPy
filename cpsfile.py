@@ -132,7 +132,7 @@ class DispCurve(object):
         self.period=Tinterp
         return
         
-class disp96file(object):
+class DispFile(object):
     def __init__(self, dispfname=None):
         self.DispLst={}
         # self.ModeLst=np.array([])
@@ -169,10 +169,10 @@ class disp96file(object):
             self.DispLst[dispcurve.header['mode']]=dispcurve
         return
                 
-    def write(self, outfname, mode=0, T0=5., dT=1., NT=155 ):
+    def write(self, outfname, mode=0, T0=5., dT=1., NT=155, datatype='phase' ):
         if T0!=None and dT != None and NT !=None:
             self.DispLst[mode].InterpDisp(T0=T0, dT=dT, NT=NT )
-        self.DispLst[mode].write(outfname)
+        self.DispLst[mode].write(outfname=outfname, datatype=datatype)
         return
     
     
