@@ -111,7 +111,24 @@ ak135model = np.array([ 20.0000, 5.8000, 3.4600, 2.7200, 310., 150., 0.00, 0.00,
 ak135Arr=ak135model.reshape(105, 10)
 
 class Model1d(object):
-
+    """
+    An object to handle input 1d model for Computer Programs in Seismology.
+    --------------------------------------------------------------------------------------------------------------
+    Parameters:
+    modelver           - model version
+    modelname       - model name
+    modelindex      - index indicating model type
+                                1: 'ISOTROPIC', 2: 'TRANSVERSE ISOTROPIC', 3: 'ANISOTROPIC'
+    modelunit         - KGS km, km/s, g/cm^3
+    earthindex         - index indicating Earth type 1: 'FLAT EARTH', 2:'SPHERICAL EARTH'
+    boundaryindex  - index indicating model boundaries 1: '1-D', 2: '2-D', 3: '3-D'
+    Vindex              - index indicating nature of layer velocity
+    HArr                  - layer thickness array
+    VsArr, VpArr, rhoArr, QpArr, QsArr, etapArr, etasArr, frefpArr,  frefsArr
+                             - model parameters
+    DepthArr          - depth array
+    --------------------------------------------------------------------------------------------------------------
+    """
     def __init__(self, modelver='MODEL.01', modelname='TEST MODEL', modelindex=1, modelunit='KGS', earthindex=1,
             boundaryindex=1, Vindex=1, HArr=np.array([]), VsArr=np.array([]), VpArr=np.array([]), rhoArr=np.array([]),
             QpArr=np.array([]), QsArr=np.array([]), etapArr=np.array([]), etasArr=np.array([]), frefpArr=np.array([]),  frefsArr=np.array([])):
@@ -142,6 +159,9 @@ class Model1d(object):
         return
     
     def ak135(self, modelname='AK135 CONTINENTAL MODEL'):
+        """
+        ak135 model
+        """
         self.modelname = modelname
         self.HArr=ak135Arr[:,0]
         self.VpArr=ak135Arr[:,1]
@@ -155,6 +175,30 @@ class Model1d(object):
         self.frefsArr=ak135Arr[:,9]
         self.DepthArr=np.cumsum(self.HArr)
         return
+
+    def addlayer(self, H, vs, vp=None, rho=None, Qp=310., Qs=150., etap=0.0, etas=0.0, frefp=1.0, frefs=1.0,
+                zmin=9999.):
+        if vp ==None:
+            vp=0.9409+2.0947*vs-0.8206*vs**2+0.2683*vs**3-0.0251*vs**4
+        if rho==None:
+            rho=1.6612*vp-0.4721*vp**2+0.0671*vp**3-0.0043*vp**4+0.000106*vp**5
+        if zmin >= self.DepthArr[-1]:
+            self.HArr=np.append(self.HArr, H)
+            self.VpArr=np.append(self.VpArr, vs)
+            self.VsArr=np.append(self.VsArr, vp)
+            self.rhoArr=np.append(self.rhoArr, rho)
+            self.QpArr=np.append(self.QpArr, Qp)
+            self.QsArr=np.append(self.QsArr, Qs)
+            self.etapArr=np.append(self.etapArr, etap)
+            self.etasArr=np.append(self.etasArr, etas)
+            self.frefpArr=np.append(self.frefpArr, frefp)
+            self.frefsArr=np.append(self.frefsArr, frefs)
+            self.DepthArr=np.cumsum(self.HArr)
+        elif zmin < self.DepthArr[0]:
+            continue here
+            
+        
+        
     
     def write(self, outfname, fmt='%g'):
         """

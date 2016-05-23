@@ -88,10 +88,14 @@ class DistFile(object):
         return
     
 class DispCurve(object):
-    def __init__(self, period=np.array([]), Vph=np.array([]), Vgr=np.array([]), header={'type': 'N/A', 'mode': -1}):
+    def __init__(self, period=np.array([]), Vph=np.array([]), Vgr=np.array([]), energy=np.array([]), gamma=np.array([]),
+                 ellip=np.array([]), header={'type': 'N/A', 'mode': -1}):
         self.period=period
         self.Vph=Vph
         self.Vgr=Vgr
+        self.energy=energy
+        self.gamma=gamma
+        self.ellip=ellip
         self.header=header
         if period.size !=Vph.size and period.size !=Vgr.size:
             raise ValueError('Inconsistent dispersion curve!')
@@ -128,7 +132,7 @@ class DispCurve(object):
         self.period=Tinterp
         return
         
-class DispFile(object):
+class disp96file(object):
     def __init__(self, dispfname=None):
         self.DispLst={}
         # self.ModeLst=np.array([])
@@ -152,8 +156,16 @@ class DispFile(object):
                         dispcurve.gethdr(line)
                     continue
                 if is_int(cline[0]):
-                    dispcurve.period=np.append( dispcurve.period, float(cline[1]) )
-                    dispcurve.Vph=np.append( dispcurve.Vph, float(cline[2]) )
+                    if len(cline)==3:
+                        dispcurve.period=np.append( dispcurve.period, float(cline[1]) )
+                        dispcurve.Vph=np.append( dispcurve.Vph, float(cline[2]) )
+                    if len(cline)==8:
+                        dispcurve.period=np.append( dispcurve.period, float(cline[1]) )
+                        dispcurve.Vph=np.append( dispcurve.Vph, float(cline[3]) )
+                        dispcurve.Vgr=np.append( dispcurve.Vgr, float(cline[4]) )
+                        dispcurve.energy=np.append( dispcurve.energy, float(cline[5]) )
+                        dispcurve.gamma=np.append( dispcurve.gamma, float(cline[6]) )
+                        dispcurve.ellip=np.append( dispcurve.ellip, float(cline[7]) )
             self.DispLst[dispcurve.header['mode']]=dispcurve
         return
                 
@@ -162,4 +174,8 @@ class DispFile(object):
             self.DispLst[mode].InterpDisp(T0=T0, dT=dT, NT=NT )
         self.DispLst[mode].write(outfname)
         return
+    
+    
+
+    
     
