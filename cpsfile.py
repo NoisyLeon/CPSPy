@@ -88,6 +88,9 @@ class DistFile(object):
         return
     
 class DispCurve(object):
+    """
+    An object to handle dispersion curve
+    """
     def __init__(self, period=np.array([]), Vph=np.array([]), Vgr=np.array([]), energy=np.array([]), gamma=np.array([]),
                  ellip=np.array([]), header={'type': 'N/A', 'mode': -1}):
         self.period=period

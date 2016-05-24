@@ -1,6 +1,7 @@
 #!/bin/bash
 # preparing data
-sprep96 -HR 0 -HS 0 -M ak135_vsvp_+0.5.mod -d dfile -NMOD 1 -R
+modelfile=ak135_p0.2_20.mod
+sprep96 -HR 0 -HS 0 -M $modelfile -d dfile -NMOD 1 -R
 #sprep96 -HR 0 -HS 0 -M test.mod -d dfile -NMOD 1 -R
 # compute dispersion curve
 sdisp96
