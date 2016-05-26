@@ -6,7 +6,7 @@ from obspy.geodetics import kilometer2degrees
 
 
 infname = './syndata_dir_000/Tgr_10.0.txt'
-infname = './syndata_dir_000_DD/Tgr_10.0.txt'
+# infname = './syndata_dir_000_DD/Tgr_10.0.txt'
 inArr=np.loadtxt(infname)
 plt.figure();
 T=inArr[:,2]
@@ -21,7 +21,7 @@ plt.plot(DistArr, VgrArr,'o' );
 plt.ylabel('Vgr(km/s)');
 plt.xlabel('Distance(km)');
 infname = './syndata_dir_000/Amp_10.0.txt'
-infname = './syndata_dir_000_DD/Amp_10.0.txt'
+# infname = './syndata_dir_000_DD/Amp_10.0.txt'
 inArr2=np.loadtxt(infname)
 AmpArr=inArr2[:,2]
 DistArr=inArr2[:,3]

@@ -894,7 +894,9 @@ class cpsASDF(pyasdf.ASDFDataSet):
                         'knetwk': str(knetwkLst[i]), 'kstnm': str(kstnmLst[i])}
                     self.add_auxiliary_data(data=arr2_2, data_type='DISPpmf2', path=station_id_aux, parameters=parameters)
         return
+    
 
+    
 
 def aftan4mp(nTr, outdir, inftan):
     print 'aftan analysis for', nTr.stats.network, nTr.stats.station#, i.value#, ntrace.stats.sac.dist
