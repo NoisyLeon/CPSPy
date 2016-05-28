@@ -895,6 +895,35 @@ class cpsASDF(pyasdf.ASDFDataSet):
                     self.add_auxiliary_data(data=arr2_2, data_type='DISPpmf2', path=station_id_aux, parameters=parameters)
         return
     
+    def PlotStreamsDistance(self, compindex=0, norm_method='trace'):
+            try:
+                evlo=self.events.events[0].origins[0].longitude
+                evla=self.events.events[0].origins[0].latitude
+            except:
+                raise ValueError('No event specified to the datasets!')
+            Str4Plot=obspy.core.Stream()
+            for station_id in self.waveforms.list():
+                # Get data from ASDF dataset
+                tr=self.waveforms[station_id].cps_raw[compindex]
+                stlo=self.waveforms[station_id].coordinates['longitude']
+                stla=self.waveforms[station_id].coordinates['latitude']
+                station_id_aux=tr.stats.network+tr.stats.station 
+                try:
+                    tr.stats.distance=self.auxiliary_data.DIST[station_id_aux].data.value[0]*1000.
+                except:
+                    dist, azi, baz= obspy.geodetics.gps2dist_azimuth(evlo, evla, stla, stlo)
+                    tr.stats.distance=dist
+                if (tr.stats.distance/1000.)%80!=0:
+                    # print tr.stats.distance/1000.
+                    continue
+                Str4Plot.append(tr)
+            Str4Plot.plot(type='section', norm_method='stream', alpha=1.0, recordlength=800., offset_min = 50000., offset_max = 2000000., scale=2.0, 
+                        linewidth = 2.5 )
+            # plt.show()
+            return
+            
+            
+    
 
     
 
