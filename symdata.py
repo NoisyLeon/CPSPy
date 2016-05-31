@@ -921,7 +921,25 @@ class cpsASDF(pyasdf.ASDFDataSet):
                         linewidth = 2.5 )
             # plt.show()
             return
-            
+    
+    def write2sac(self, outdir, compindex=0):
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        for station_id in self.waveforms.list():
+                # Get data from ASDF dataset
+                tr=self.waveforms[station_id].cps_raw[compindex]
+                stlo=self.waveforms[station_id].coordinates['longitude']
+                stla=self.waveforms[station_id].coordinates['latitude']
+                station_id_aux=tr.stats.network+tr.stats.station 
+                try:
+                    dist=self.auxiliary_data.DIST[station_id_aux].data.value[0]
+                except:
+                    dist, azi, baz= obspy.geodetics.gps2dist_azimuth(evlo, evla, stla, stlo)
+                    dist=dist/1000.
+                sacfname=outdir+'/'+str(int(dist))+'.sac'
+                tr.write(sacfname, format='sac')
+        return
+    
             
     
 
