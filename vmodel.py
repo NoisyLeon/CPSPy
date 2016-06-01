@@ -1,8 +1,8 @@
 
 import os
 import numpy as np
-
-
+import matplotlib.pyplot as plt
+import copy
 ak135Arr=np.loadtxt('ak135forvmodel.mod')
 
 class Model1d(object):
@@ -52,6 +52,8 @@ class Model1d(object):
         self.frefsArr=frefsArr
         self.DepthArr=np.cumsum(self.HArr)
         return
+    def copy(self):
+        return copy.deepcopy(self)
     
     def ak135(self, modelname='AK135 CONTINENTAL MODEL'):
         """
@@ -314,6 +316,35 @@ class Model1d(object):
         zbottom=self.DepthArr[index][-1]
         print 'Top:', ztop, 'km Bottom:', zbottom,'km'
         return
+    
+    def getArr4plot(self, zmin=-9999, zmax=9999, datatype='vs'):
+        index=(self.DepthArr<zmax) * (self.DepthArr>zmin)
+        depthArr=self.DepthArr[index]
+        if datatype=='vp':
+            dataArr=self.VpArr[index]
+        if datatype=='vs':
+            dataArr=self.VsArr[index]
+        if datatype=='rho':
+            dataArr=self.rhoArr[index]
+        if datatype=='qp':
+            dataArr=self.QpArr[index]
+        if datatype=='qs':
+            dataArr=self.QsArr[index]
+        if datatype=='etap':
+            dataArr=self.etapArr[index]
+        if datatype=='etas':
+            dataArr=self.etasArr[index]
+        if datatype=='frefp':
+            dataArr=self.frefpArr[index]
+        if datatype=='frefs':
+            dataArr=self.frefsArr[index]
+        dataArr=np.repeat(dataArr, 2)
+        depthArr=np.repeat(depthArr, 2)
+        dataArr=np.append(dataArr, dataArr[-1])
+        zmin=max(0., zmin)
+        depthArr=np.append(0., depthArr)
+        return dataArr, depthArr
+        
     
     
     
