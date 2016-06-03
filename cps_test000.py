@@ -5,8 +5,8 @@ from scipy import stats
 from obspy.geodetics import kilometer2degrees
 
 
-# infname = '../cps_data_dir/syndata_dir_000/Tgr_10.0.txt'
-infname = '/media/lili/BCD29BBBD29B787A/cps_data_dir/syndata_dir_all_DD/Tgr_10.0.txt'
+infname = '../cps_data_dir/syndata_dir_000/Tgr_10.0.txt'
+# infname = '/media/lili/BCD29BBBD29B787A/cps_data_dir/syndata_dir_all_DD/Tgr_10.0.txt'
 # infname = './syndata_dir_000_DD/Tgr_10.0.txt'
 inArr=np.loadtxt(infname)
 fig1, ax1 = plt.subplots()
@@ -26,8 +26,8 @@ ax1.tick_params(axis='y', labelsize=20)
 
 
 fig2, ax2 = plt.subplots()
-# infname = '../cps_data_dir/syndata_dir_000/Amp_10.0.txt'
-infname = '/media/lili/BCD29BBBD29B787A/cps_data_dir/syndata_dir_all_DD/Amp_10.0.txt'
+infname = '../cps_data_dir/syndata_dir_000/Amp_10.0.txt'
+# infname = '/media/lili/BCD29BBBD29B787A/cps_data_dir/syndata_dir_all_DD/Amp_10.0.txt'
 inArr2=np.loadtxt(infname)
 AmpArr=inArr2[:,2]*1000000.
 DistArr=inArr2[:,3]
