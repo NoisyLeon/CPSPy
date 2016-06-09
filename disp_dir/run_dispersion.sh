@@ -1,12 +1,13 @@
 #!/bin/bash
 # preparing data
-modelfile=ak135_p0.2_20.mod
-sprep96 -HR 0 -HS 0 -M $modelfile -d dfile -NMOD 1 -R
+modelfile=ak135.mod
+#sprep96 -HR 0 -HS 0 -M $modelfile -d dfile -NMOD 1 -R
+sprep96 -HR 0 -HS 0 -M $modelfile -DT 0.1 -NPTS 1024 -NMOD 1 -R
 #sprep96 -HR 0 -HS 0 -M test.mod -d dfile -NMOD 1 -R
 # compute dispersion curve
 sdisp96
 #Get ASCII disersion curve, not required for computing normal mode synthetics
-sdpsrf96 -R -PER -XMIN 0.1 -XMAX 100 -ASC
+#sdpsrf96 -R -PER -XMIN 0.1 -XMAX 100 -ASC
 # compute eigenfunctions
 sregn96 -NOQ
 sdpegn96 -R -U -ASC -TXT -PER

@@ -1,9 +1,9 @@
 import cpsfile
 
 dispfile=cpsfile.DispFile('./disp_dir/SREGN_p0.2_20.TXT')
-dispfile.write('./disp_dir/ak135_interp_p0.2_20_gr.disp', datatype='group')
-dispfile=cpsfile.DispFile('./disp_dir/SREGN_p0.2_20.TXT')
-dispfile.write('./disp_dir/ak135_interp_p0.2_20_ph.disp', datatype='phase')
+# dispfile.write('./disp_dir/ak135_interp_p0.2_20_gr.disp', datatype='group')
+# dispfile=cpsfile.DispFile('./disp_dir/SREGN_p0.2_20.TXT')
+# dispfile.write('./disp_dir/ak135_interp_p0.2_20_ph.disp', datatype='phase')
 # dispfile=cpsfile.DispFile('./disp_dir/SREGN_000.TXT')
 # dispfile.write('./disp_dir/ak135_interp_000_gr.disp', datatype='group')
 # dispfile=cpsfile.DispFile('./disp_dir/SREGN_vsvp_+0.2.TXT')

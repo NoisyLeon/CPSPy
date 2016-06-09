@@ -9,6 +9,17 @@ def is_int(s):
         return False
     
 class DistFile(object):
+    """
+    An object to distance file for Computer Programs in Seismology.
+    ========================================================================
+    Parameters:
+    distArr       - distance for origin point
+    dtArr         - sampling interval in synthetic seismograms
+    nptsArr      - npts array 
+    T0Arr         - time of first sample is T0 + DIST/VRED
+    VredArr     - see above
+    ========================================================================
+    """
     def __init__(self, distfname=None):
         try:
             self.read(distfname)
@@ -45,17 +56,17 @@ class DistFile(object):
     
     def add(self, dist, dt=0.1, N2=14, T0=0.0, Vred=0.0):
         """Add a single distance point
-        -----------------------------------------------------------------------------------------------------
+        =============================================
         Input Parameters:
-        dist     - distance for origin point
-        dt         - sampling interval in synthetic seismograms
+        dist       - distance for origin point
+        dt          - sampling interval in synthetic seismograms
         N2        - NPTS = 2**N2
         T0         - time of first sample is T0 + DIST/VRED
         Vred     - see above
         
         Output:
         self.distArr, dtArr, nptsArr, T0Arr, VredArr
-        -----------------------------------------------------------------------------------------------------
+        =============================================
         """
         self.distArr=np.append(self.distArr, dist)
         self.dtArr=np.append(self.dtArr, dt)
@@ -66,7 +77,7 @@ class DistFile(object):
     
     def addEqualDist(self, dist0, dD, Nd, dt=0.1, N2=14, T0=0.0, Vred=0.0):
         """Add equal distance list.
-        -----------------------------------------------------------------------------------------------------
+        =============================================
         Input Parameters:
         dist0    - distance for origin point
         dD       - distance interval
@@ -78,7 +89,7 @@ class DistFile(object):
         
         Output:
         self.distArr, dtArr, nptsArr, T0Arr, VredArr
-        -----------------------------------------------------------------------------------------------------
+        =============================================
         """
         self.distArr=np.append(self.distArr, np.arange(Nd)*dD+dist0 )
         self.dtArr=np.append(self.dtArr, np.ones(Nd)*dt)
@@ -89,7 +100,17 @@ class DistFile(object):
     
 class DispCurve(object):
     """
-    An object to handle dispersion curve
+    An object to handle single mode dispersion curve 
+    ========================================================================
+    Parameters:
+    period       - period array
+    Vph          - phase velocity array
+    Vgr           - group velocity array
+    energy      - energy integral array
+    gamma     - anelastic attenuation coefficient array
+    ellip          - Rayleigh wave ellipticity
+    header      - header dictionary (type: RAYLEIGH or LOVE , mode: 0, 1, 2...)
+    ========================================================================
     """
     def __init__(self, period=np.array([]), Vph=np.array([]), Vgr=np.array([]), energy=np.array([]), gamma=np.array([]),
                  ellip=np.array([]), header={'type': 'N/A', 'mode': -1}):
@@ -105,6 +126,9 @@ class DispCurve(object):
         return
     
     def gethdr(self, instr, verbose=True):
+        """
+        Get the header information
+        """
         strLst=instr.split()
         self.header={'type': strLst[0], 'mode': int(strLst[4])}
         if verbose ==True:
@@ -112,6 +136,9 @@ class DispCurve(object):
         return
     
     def write(self, outfname, datatype='phase'):
+        """
+        Write dispersion curve to a txt file
+        """
         if datatype=='phase':
             outArr=np.append(self.period, self.Vph)
             outArr=outArr.reshape((2, self.period.size))
@@ -138,7 +165,6 @@ class DispCurve(object):
 class DispFile(object):
     def __init__(self, dispfname=None):
         self.DispLst={}
-        # self.ModeLst=np.array([])
         if os.path.isfile(dispfname):
             self.read(dispfname)
         return
@@ -177,6 +203,12 @@ class DispFile(object):
             self.DispLst[mode].InterpDisp(T0=T0, dT=dT, NT=NT )
         self.DispLst[mode].write(outfname=outfname, datatype=datatype)
         return
+    
+
+
+    
+    
+    
     
     
 
