@@ -173,8 +173,7 @@ class DispFile(object):
         with open(dispfname, 'r') as f:
             for line in f.readlines():
                 cline=line.split()
-                if len(cline)==0:
-                    continue
+                if len(cline)==0: continue
                 if len(cline)==5:
                     try:
                         self.DispLst[dispcurve.header['mode']]=dispcurve

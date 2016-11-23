@@ -23,16 +23,16 @@ class eigendispASDF(pyasdf.ASDFDataSet):
         self.model1d.ak135()
         return
     
-    def getdisp(self, dt=0.1, N2=12 , nmodes=1, mode=0, hr=0., hs=0., workingdir='./cpspy_working_dir', deletemod=True, verbose=True):
+    def getdisp(self, workingdir, dt=0.1, N2=12 , nmodes=1, mode=0, hr=0., hs=0., deletemod=True, verbose=True):
         """ Get theoretical dispersion curves for all vertical profiles and save them to ASDF file
         ==========================================================================================
         Input Parameters:
-        dt                 - time interval
-        N2               - npts = 2**N2
-        nmodes        - number of modes
-        mode           - mode index (0 for fundamental mode, 1 for 1st overtone ...)
-        hr                 - receiver depth
-        hs                - source depth
+        dt          - time interval
+        N2          - npts = 2**N2
+        nmodes      - number of modes
+        mode        - mode index (0 for fundamental mode, 1 for 1st overtone ...)
+        hr          - receiver depth
+        hs          - source depth
         workingdir  - working directory for Computer Program for Seismology
         deletemod   - delete model files or not
         ==========================================================================================
@@ -55,10 +55,8 @@ class eigendispASDF(pyasdf.ASDFDataSet):
             f.writelines('sprep96 -DT %f -NPTS %d -HR %f -HS %f -M %s -NMOD %d -R \n'
                         %(dt, npts, hr, hs, ak135mod, nmodes) )
             f.writelines('sdisp96 \nsregn96 -NOQ \nsdpegn96 -R -U -ASC -TXT -PER \n')
-        if verbose == False:
-            subprocess.call(['bash', tempCPS], stdout=FNULL, stderr=subprocess.STDOUT)
-        else:
-            subprocess.call(['bash', tempCPS])
+        if verbose == False: subprocess.call(['bash', tempCPS], stdout=FNULL, stderr=subprocess.STDOUT)
+        else: subprocess.call(['bash', tempCPS])
         os.remove('sdisp96.dat')
         os.remove('sdisp96.ray')
         os.remove('sregn96.egn')
@@ -67,8 +65,7 @@ class eigendispASDF(pyasdf.ASDFDataSet):
         dispfile=cpsfile.DispFile('SREGN.TXT')
         os.remove('SREGN.TXT')
         os.remove(tempCPS)
-        if deletemod==True:
-            os.remove(ak135mod)
+        if deletemod==True: os.remove(ak135mod)
         dispcurve=dispfile.DispLst[mode]
         dispcurve.InterpDisp()
         auxArr=np.append(dispcurve.period, dispcurve.Vph)
