@@ -65,7 +65,7 @@ class eigendispASDF(pyasdf.ASDFDataSet):
         dispfile=cpsfile.DispFile('SREGN.TXT')
         os.remove('SREGN.TXT')
         os.remove(tempCPS)
-        if deletemod==True: os.remove(ak135mod)
+        if deletemod: os.remove(ak135mod)
         dispcurve=dispfile.DispLst[mode]
         dispcurve.InterpDisp()
         auxArr=np.append(dispcurve.period, dispcurve.Vph)
@@ -112,8 +112,7 @@ class eigendispASDF(pyasdf.ASDFDataSet):
             dispfile=cpsfile.DispFile('SREGN.TXT')
             os.remove('SREGN.TXT')
             os.remove(tempCPS)
-            if deletemod==True:
-                os.remove(tempmod)
+            if deletemod: os.remove(tempmod)
             dispcurve=dispfile.DispLst[mode]
             dispcurve.InterpDisp()
             auxArr=np.append(dispcurve.period, dispcurve.Vph)
@@ -122,7 +121,7 @@ class eigendispASDF(pyasdf.ASDFDataSet):
             # vs/dvs    vp/dvp    rho/drho    Rmax    Rmin    z0    H    x    y    dtype
             parameters={'Rmax': self.Vprofile.RmaxArr[i], 'Rmin': self.Vprofile.RminArr[i], 'x': self.Vprofile.xArr[i],
                         'y': self.Vprofile.yArr[i], 'T': 0, 'Vph': 1, 'Vgr': 2}
-            path='VP%03d' %i 
+            path='VP%03d' %(i+1) 
             self.add_auxiliary_data(data=auxArr, data_type='Disp', path=path, parameters=parameters)
         FNULL.close()
         return

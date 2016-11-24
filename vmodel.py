@@ -485,16 +485,28 @@ class vprofile(object):
     
     def read(self, infname):
         inArr=np.loadtxt(infname)
-        self.vsArr=inArr[:,0]
-        self.vpArr=inArr[:,1]
-        self.rhoArr=inArr[:,2]
-        self.RmaxArr=inArr[:,3]
-        self.RminArr=inArr[:,4]
-        self.z0Arr=inArr[:,5]
-        self.HArr=inArr[:,6]
-        self.xArr=inArr[:,7]
-        self.yArr=inArr[:,8]
-        self.dtypeArr=inArr[:,9]
+        try:
+            self.vsArr=inArr[:,0]
+            self.vpArr=inArr[:,1]
+            self.rhoArr=inArr[:,2]
+            self.RmaxArr=inArr[:,3]
+            self.RminArr=inArr[:,4]
+            self.z0Arr=inArr[:,5]
+            self.HArr=inArr[:,6]
+            self.xArr=inArr[:,7]
+            self.yArr=inArr[:,8]
+            self.dtypeArr=inArr[:,9]
+        except:
+            self.vsArr=np.array([inArr[0]])
+            self.vpArr=np.array([inArr[1]])
+            self.rhoArr=np.array([inArr[2]])
+            self.RmaxArr=np.array([inArr[3]])
+            self.RminArr=np.array([inArr[4]])
+            self.z0Arr=np.array([inArr[5]])
+            self.HArr=np.array([inArr[6]])
+            self.xArr=np.array([inArr[7]])
+            self.yArr=np.array([inArr[8]])
+            self.dtypeArr=np.array([inArr[9]])
         return
     
     def write(self, outfname):
