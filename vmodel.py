@@ -8,21 +8,21 @@ import copy
 class Model1d(object):
     """
     An object to handle input 1d model for Computer Programs in Seismology.
-    ========================================================================
+    ============================================================================================
     Parameters:
-    modelver           - model version
+    modelver        - model version
     modelname       - model name
-    modelindex       - index indicating model type
-                                1: 'ISOTROPIC', 2: 'TRANSVERSE ISOTROPIC', 3: 'ANISOTROPIC'
-    modelunit         - KGS km, km/s, g/cm^3
-    earthindex        - index indicating Earth type 1: 'FLAT EARTH', 2:'SPHERICAL EARTH'
-    boundaryindex - index indicating model boundaries 1: '1-D', 2: '2-D', 3: '3-D'
-    Vindex              - index indicating nature of layer velocity
-    HArr                 - layer thickness array
+    modelindex      - index indicating model type
+                        1: 'ISOTROPIC', 2: 'TRANSVERSE ISOTROPIC', 3: 'ANISOTROPIC'
+    modelunit       - KGS km, km/s, g/cm^3
+    earthindex      - index indicating Earth type 1: 'FLAT EARTH', 2:'SPHERICAL EARTH'
+    boundaryindex   - index indicating model boundaries 1: '1-D', 2: '2-D', 3: '3-D'
+    Vindex          - index indicating nature of layer velocity
+    HArr            - layer thickness array
     VsArr, VpArr, rhoArr, QpArr, QsArr, etapArr, etasArr, frefpArr,  frefsArr
-                             - model parameters
-    DepthArr          - depth array
-    ========================================================================
+                    - model parameters
+    DepthArr        - depth array
+    ============================================================================================
     """
     def __init__(self, modelver='MODEL.01', modelname='TEST MODEL', modelindex=1, modelunit='KGS', earthindex=1,
             boundaryindex=1, Vindex=1, HArr=np.array([]), VsArr=np.array([]), VpArr=np.array([]), rhoArr=np.array([]),
@@ -78,19 +78,20 @@ class Model1d(object):
     def addlayer(self, H, vs, vp=None, rho=None, Qp=310., Qs=150., etap=0.0, etas=0.0, frefp=1.0, frefs=1.0,
                 zmin=9999.):
         """ Add layer to the model
-        ======================================================================================
+        =========================================================================================================================
         Input Parameters:
-        H                   - layer thickness
-        vs                  - vs
-        vp, rho          - vp, rho default is None by assuming Brocher Crust
+        H               - layer thickness
+        vs              - vs
+        vp, rho         - vp, rho default is None by assuming Brocher Crust
         Qp, Qs          - quality factor
-        etap, etas, frefp, frefs  - see the manual for computer programs in seismology
-        zmin             -   top depth of the layer
-                                1. default is 9999, which will simply append one layer to the model
-                                2. if zmin < the bottom of preexisting top layer, it will append a new
-                                    layer to the top (also replace some part of the preexisting top layer)
-                                3. else, the code will replace some part of preexisting model( this part need further checking! )
-        ======================================================================================
+        etap, etas, frefp, frefs
+                        - see the manual for computer programs in seismology
+        zmin            -   top depth of the layer
+                            1. default is 9999, which will simply append one layer to the model
+                            2. if zmin < the bottom of preexisting top layer, it will append a new
+                                layer to the top (also replace some part of the preexisting top layer)
+                            3. else, the code will replace some part of preexisting model( this part need further checking! )
+        =========================================================================================================================
         """
         if vp  is None:
             vp=0.9409+2.0947*vs-0.8206*vs**2+0.2683*vs**3-0.0251*vs**4
@@ -280,12 +281,12 @@ class Model1d(object):
     
     def perturb(self, dm, zmin=0, zmax=9999, datatype='vs'):
         """ Add perturbation to the model given a depth range
-        =============================================
+        =======================================================
         Input Parameters:
-        dm                - perturbed value (-1, 1)
-        zmin, zmax   - depth range for the perturbation
-        datatype       - data type for perturbation
-        =============================================
+        dm          - perturbed value (-1, 1)
+        zmin, zmax  - depth range for the perturbation
+        datatype    - data type for perturbation
+        =======================================================
         """
         topArr = self.DepthArr - self.HArr
         bottomArr = self.DepthArr
@@ -438,7 +439,6 @@ class Model1d(object):
     def plotvsak135(self, zmin=0, zmax=200., datatype='vs'):
         ak135model = Model1d()
         ak135model.ak135()
-        # return ak135model
         dataArr, depthArr=self.getArr4plot(zmax=zmax, datatype=datatype)
         dataArr0, depthArr0=ak135model.getArr4plot(zmax=zmax, datatype=datatype)
         fig, ax= plt.subplots(figsize=(8,12))
@@ -460,14 +460,14 @@ class vprofile(object):
                  z0Arr=np.array([]), HArr=np.array([]), xArr=np.array([]), yArr=np.array([]), dtypeArr=np.array([]), infname=None ):
         """
         An object to handle vertical profile, will be used by CPSPy
-        ===================================================================
+        ========================================================================================
         output txt format:
         vs/dvs    vp/dvp    rho/drho    Rmax    Rmin    z0    H    x    y    dtype
         
         dtype:
         0. absolute value for vs/vp/rho
         1. percentage value for dvs/dvp/drho 
-        ===================================================================
+        ========================================================================================
         """
         self.vsArr=vsArr
         self.vpArr=vpArr

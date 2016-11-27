@@ -13,10 +13,10 @@ class DistFile(object):
     An object to distance file for Computer Programs in Seismology.
     ========================================================================
     Parameters:
-    distArr       - distance for origin point
-    dtArr         - sampling interval in synthetic seismograms
-    nptsArr      - npts array 
-    T0Arr         - time of first sample is T0 + DIST/VRED
+    distArr     - distance for origin point
+    dtArr       - sampling interval in synthetic seismograms
+    nptsArr     - npts array 
+    T0Arr       - time of first sample is T0 + DIST/VRED
     VredArr     - see above
     ========================================================================
     """
@@ -56,17 +56,17 @@ class DistFile(object):
     
     def add(self, dist, dt=0.1, N2=14, T0=0.0, Vred=0.0):
         """Add a single distance point
-        =============================================
+        ============================================================
         Input Parameters:
-        dist       - distance for origin point
-        dt          - sampling interval in synthetic seismograms
-        N2        - NPTS = 2**N2
-        T0         - time of first sample is T0 + DIST/VRED
-        Vred     - see above
+        dist    - distance for origin point
+        dt      - sampling interval in synthetic seismograms
+        N2      - NPTS = 2**N2
+        T0      - time of first sample is T0 + DIST/VRED
+        Vred    - see above
         
         Output:
         self.distArr, dtArr, nptsArr, T0Arr, VredArr
-        =============================================
+        ============================================================
         """
         self.distArr=np.append(self.distArr, dist)
         self.dtArr=np.append(self.dtArr, dt)
@@ -77,19 +77,19 @@ class DistFile(object):
     
     def addEqualDist(self, dist0, dD, Nd, dt=0.1, N2=14, T0=0.0, Vred=0.0):
         """Add equal distance list.
-        =============================================
+        ============================================================
         Input Parameters:
-        dist0    - distance for origin point
-        dD       - distance interval
-        Nd       - number of distance point 
-        dt         - sampling interval in synthetic seismograms
-        N2        - NPTS = 2**N2
-        T0         - time of first sample is T0 + DIST/VRED
-        Vred     - see above
+        dist0   - distance for origin point
+        dD      - distance interval
+        Nd      - number of distance point 
+        dt      - sampling interval in synthetic seismograms
+        N2      - NPTS = 2**N2
+        T0      - time of first sample is T0 + DIST/VRED
+        Vred    - see above
         
         Output:
         self.distArr, dtArr, nptsArr, T0Arr, VredArr
-        =============================================
+        ============================================================
         """
         self.distArr=np.append(self.distArr, np.arange(Nd)*dD+dist0 )
         self.dtArr=np.append(self.dtArr, np.ones(Nd)*dt)
@@ -103,13 +103,13 @@ class DispCurve(object):
     An object to handle single mode dispersion curve 
     ========================================================================
     Parameters:
-    period       - period array
-    Vph          - phase velocity array
-    Vgr           - group velocity array
-    energy      - energy integral array
-    gamma     - anelastic attenuation coefficient array
-    ellip          - Rayleigh wave ellipticity
-    header      - header dictionary (type: RAYLEIGH or LOVE , mode: 0, 1, 2...)
+    period  - period array
+    Vph     - phase velocity array
+    Vgr     - group velocity array
+    energy  - energy integral array
+    gamma   - anelastic attenuation coefficient array
+    ellip   - Rayleigh wave ellipticity
+    header  - header dictionary (type: RAYLEIGH or LOVE , mode: 0, 1, 2...)
     ========================================================================
     """
     def __init__(self, period=np.array([]), Vph=np.array([]), Vgr=np.array([]), energy=np.array([]), gamma=np.array([]),
@@ -159,6 +159,8 @@ class DispCurve(object):
             self.Vph=np.interp(Tinterp, self.period, self.Vph)
         if self.Vgr.size == self.period.size:
             self.Vgr=np.interp(Tinterp, self.period, self.Vgr)
+        if self.gamma.size == self.period.size:
+            self.gamma=np.interp(Tinterp, self.period, self.gamma)
         self.period=Tinterp
         return
         
@@ -202,14 +204,5 @@ class DispFile(object):
             self.DispLst[mode].InterpDisp(T0=T0, dT=dT, NT=NT )
         self.DispLst[mode].write(outfname=outfname, datatype=datatype)
         return
-    
-
-
-    
-    
-    
-    
-    
-
     
     

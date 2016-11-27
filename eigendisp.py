@@ -23,7 +23,7 @@ class eigendispASDF(pyasdf.ASDFDataSet):
         self.model1d.ak135()
         return
     
-    def getdisp(self, workingdir, dt=0.1, N2=12 , nmodes=1, mode=0, hr=0., hs=0., deletemod=True, verbose=True):
+    def getdisp(self, workingdir, dt=0.1, N2=12 , nmodes=1, mode=0, hr=0., hs=0., deletemod=False, verbose=True, noq=False):
         """ Get theoretical dispersion curves for all vertical profiles and save them to ASDF file
         ==========================================================================================
         Input Parameters:
@@ -54,7 +54,8 @@ class eigendispASDF(pyasdf.ASDFDataSet):
         with open(tempCPS, 'wb') as f:
             f.writelines('sprep96 -DT %f -NPTS %d -HR %f -HS %f -M %s -NMOD %d -R \n'
                         %(dt, npts, hr, hs, ak135mod, nmodes) )
-            f.writelines('sdisp96 \nsregn96 -NOQ \nsdpegn96 -R -U -ASC -TXT -PER \n')
+            if noq: f.writelines('sdisp96 \nsregn96 -NOQ \nsdpegn96 -R -U -ASC -TXT -PER \n')
+            else: f.writelines('sdisp96 \nsregn96 \nsdpegn96 -R -U -ASC -TXT -PER \n')        
         if verbose == False: subprocess.call(['bash', tempCPS], stdout=FNULL, stderr=subprocess.STDOUT)
         else: subprocess.call(['bash', tempCPS])
         os.remove('sdisp96.dat')
@@ -70,9 +71,14 @@ class eigendispASDF(pyasdf.ASDFDataSet):
         dispcurve.InterpDisp()
         auxArr=np.append(dispcurve.period, dispcurve.Vph)
         auxArr=np.append(auxArr, dispcurve.Vgr)
-        auxArr=auxArr.reshape(3, dispcurve.period.size )
-        # vs/dvs    vp/dvp    rho/drho    Rmax    Rmin    z0    H    x    y    dtype
-        parameters={'Rmax': 0., 'Rmin': 0., 'x': 0, 'y': 0, 'T': 0, 'Vph': 1, 'Vgr': 2}
+        if noq:
+            auxArr=auxArr.reshape(3, dispcurve.period.size )
+            # vs/dvs    vp/dvp    rho/drho    Rmax    Rmin    z0    H    x    y    dtype
+            parameters={'Rmax': 0., 'Rmin': 0., 'x': 0, 'y': 0, 'T': 0, 'Vph': 1, 'Vgr': 2}
+        else:
+            auxArr=np.append(auxArr, dispcurve.gamma)
+            auxArr=auxArr.reshape(4, dispcurve.period.size )
+            parameters={'Rmax': 0., 'Rmin': 0., 'x': 0, 'y': 0, 'T': 0, 'Vph': 1, 'Vgr': 2, 'gamma': 3}
         self.add_auxiliary_data(data=auxArr, data_type='Disp', path='VP000', parameters=parameters)
         Np=self.Vprofile.vsArr.size
         ############################################################################
@@ -99,7 +105,8 @@ class eigendispASDF(pyasdf.ASDFDataSet):
             with open(tempCPS, 'wb') as f:
                 f.writelines('sprep96 -DT %f -NPTS %d -HR %f -HS %f -M %s -NMOD %d -R \n'
                             %(dt, npts, hr, hs, tempmod, nmodes) )
-                f.writelines('sdisp96 \nsregn96 -NOQ \nsdpegn96 -R -U -ASC -TXT -PER \n')
+                if noq: f.writelines('sdisp96 \nsregn96 -NOQ \nsdpegn96 -R -U -ASC -TXT -PER \n')
+                else: f.writelines('sdisp96 \nsregn96 \nsdpegn96 -R -U -ASC -TXT -PER \n')        
             if verbose == False:
                 subprocess.call(['bash', tempCPS], stdout=FNULL, stderr=subprocess.STDOUT)
             else:
@@ -111,34 +118,23 @@ class eigendispASDF(pyasdf.ASDFDataSet):
             os.remove('SREGNU.PLT')
             dispfile=cpsfile.DispFile('SREGN.TXT')
             os.remove('SREGN.TXT')
-            os.remove(tempCPS)
+            # os.remove(tempCPS)
             if deletemod: os.remove(tempmod)
             dispcurve=dispfile.DispLst[mode]
             dispcurve.InterpDisp()
             auxArr=np.append(dispcurve.period, dispcurve.Vph)
             auxArr=np.append(auxArr, dispcurve.Vgr)
-            auxArr=auxArr.reshape(3, dispcurve.period.size )
-            # vs/dvs    vp/dvp    rho/drho    Rmax    Rmin    z0    H    x    y    dtype
-            parameters={'Rmax': self.Vprofile.RmaxArr[i], 'Rmin': self.Vprofile.RminArr[i], 'x': self.Vprofile.xArr[i],
-                        'y': self.Vprofile.yArr[i], 'T': 0, 'Vph': 1, 'Vgr': 2}
+            if noq:
+                auxArr=auxArr.reshape(3, dispcurve.period.size )
+                # vs/dvs    vp/dvp    rho/drho    Rmax    Rmin    z0    H    x    y    dtype
+                parameters={'Rmax': self.Vprofile.RmaxArr[i], 'Rmin': self.Vprofile.RminArr[i], 'x': self.Vprofile.xArr[i],
+                            'y': self.Vprofile.yArr[i], 'T': 0, 'Vph': 1, 'Vgr': 2}
+            else:
+                auxArr=np.append(auxArr, dispcurve.gamma)
+                auxArr=auxArr.reshape(4, dispcurve.period.size )
+                parameters={'Rmax': self.Vprofile.RmaxArr[i], 'Rmin': self.Vprofile.RminArr[i], 'x': self.Vprofile.xArr[i],
+                            'y': self.Vprofile.yArr[i], 'T': 0, 'Vph': 1, 'Vgr': 2, 'gamma': 3}
             path='VP%03d' %(i+1) 
             self.add_auxiliary_data(data=auxArr, data_type='Disp', path=path, parameters=parameters)
         FNULL.close()
-        return
-        
-        
-    
-            
-        
-            
-                
-                
-                
-        
-        
-        
-        
-        
-    
-    
-    
+        return    

@@ -1,0 +1,2 @@
+# vs/dvs vp/dvp rho/drho Rmax Rmin z0 H x y dtype(0: m, 1: dm)
+2000 3592.7 2333.23 200000 190000 0 4000 1.1e+06 300000 0
