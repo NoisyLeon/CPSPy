@@ -4,16 +4,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 model=vmodel.Model1d()
 model.ak135()
-model1=model.copy()
-model2=model.copy()
-zmin=13
-zmax=128
-model.perturb(dm=.3, zmin=zmin, zmax= zmax)
-model.perturb(dm=.3, zmin=zmin, zmax= zmax, datatype='vp')
-model.perturb(dm=0.3, zmin=zmin, zmax= zmax, datatype='rho')
-model.plotvsak135(zmax=200., datatype='vs')
-model.plotvsak135(zmax=200., datatype='vp')
-model.plotvsak135(zmax=200., datatype='rho')
+model.read_layer_txt('../SW4Py/cpsin_staircase_1km.txt')
+model.write('./staircase_1km.mod')
+# model1=model.copy()
+# model2=model.copy()
+# zmin=13
+# zmax=128
+# model.perturb(dm=.3, zmin=zmin, zmax= zmax)
+# model.perturb(dm=.3, zmin=zmin, zmax= zmax, datatype='vp')
+# model.perturb(dm=0.3, zmin=zmin, zmax= zmax, datatype='rho')
+# model.plotvsak135(zmax=200., datatype='vs')
+# model.plotvsak135(zmax=200., datatype='vp')
+# model.plotvsak135(zmax=200., datatype='rho')
 # model1.perturb(dm=0.1, zmax=21., datatype='vs')
 # model2.perturb(dm=-0.1, zmax=21., datatype='vs')
 # model.perturb(dm=0.1, zmax=21., datatype='vp')

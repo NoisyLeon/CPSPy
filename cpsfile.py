@@ -24,11 +24,11 @@ class DistFile(object):
         try:
             self.read(distfname)
         except:
-            self.distArr=np.array([])
-            self.dtArr=np.array([])
-            self.nptsArr=np.array([])
-            self.T0Arr=np.array([])
-            self.VredArr=np.array([])
+            self.distArr= np.array([])
+            self.dtArr  = np.array([])
+            self.nptsArr= np.array([])
+            self.T0Arr  = np.array([])
+            self.VredArr= np.array([])
         return
     
     def read(self, distfname):
@@ -36,12 +36,12 @@ class DistFile(object):
         Read Distance file 
         DIST DT NPTS T0 VRED
         """
-        InArr=np.loadtxt(distfname)
-        self.distArr=InArr[:,0]
-        self.dtArr=InArr[:,1]
-        self.nptsArr=InArr[:,2]
-        self.T0Arr=InArr[:,3]
-        self.VredArr=InArr[:,4]
+        InArr       = np.loadtxt(distfname)
+        self.distArr= InArr[:,0]
+        self.dtArr  = InArr[:,1]
+        self.nptsArr= InArr[:,2]
+        self.T0Arr  = InArr[:,3]
+        self.VredArr= InArr[:,4]
         return
     
     def write(self, distfname):
@@ -68,11 +68,11 @@ class DistFile(object):
         self.distArr, dtArr, nptsArr, T0Arr, VredArr
         ============================================================
         """
-        self.distArr=np.append(self.distArr, dist)
-        self.dtArr=np.append(self.dtArr, dt)
-        self.nptsArr=np.append(self.nptsArr, 2**N2)
-        self.T0Arr=np.append(self.T0Arr, T0)
-        self.VredArr=np.append(self.VredArr, Vred)
+        self.distArr= np.append(self.distArr, dist)
+        self.dtArr  = np.append(self.dtArr, dt)
+        self.nptsArr= np.append(self.nptsArr, 2**N2)
+        self.T0Arr  = np.append(self.T0Arr, T0)
+        self.VredArr= np.append(self.VredArr, Vred)
         return
     
     def addEqualDist(self, dist0, dD, Nd, dt=0.1, N2=14, T0=0.0, Vred=0.0):
@@ -91,11 +91,11 @@ class DistFile(object):
         self.distArr, dtArr, nptsArr, T0Arr, VredArr
         ============================================================
         """
-        self.distArr=np.append(self.distArr, np.arange(Nd)*dD+dist0 )
-        self.dtArr=np.append(self.dtArr, np.ones(Nd)*dt)
-        self.nptsArr=np.append(self.nptsArr, np.ones(Nd)*2**N2)
-        self.T0Arr=np.append(self.T0Arr, np.ones(Nd)*T0)
-        self.VredArr=np.append(self.VredArr, np.ones(Nd)*Vred)
+        self.distArr= np.append(self.distArr, np.arange(Nd)*dD+dist0 )
+        self.dtArr  = np.append(self.dtArr, np.ones(Nd)*dt)
+        self.nptsArr= np.append(self.nptsArr, np.ones(Nd)*2**N2)
+        self.T0Arr  = np.append(self.T0Arr, np.ones(Nd)*T0)
+        self.VredArr= np.append(self.VredArr, np.ones(Nd)*Vred)
         return
     
 class DispCurve(object):
@@ -114,13 +114,13 @@ class DispCurve(object):
     """
     def __init__(self, period=np.array([]), Vph=np.array([]), Vgr=np.array([]), energy=np.array([]), gamma=np.array([]),
                  ellip=np.array([]), header={'type': 'N/A', 'mode': -1}):
-        self.period=period
-        self.Vph=Vph
-        self.Vgr=Vgr
-        self.energy=energy
-        self.gamma=gamma
-        self.ellip=ellip
-        self.header=header
+        self.period = period
+        self.Vph    = Vph
+        self.Vgr    = Vgr
+        self.energy = energy
+        self.gamma  = gamma
+        self.ellip  = ellip
+        self.header = header
         if period.size !=Vph.size and period.size !=Vgr.size:
             raise ValueError('Inconsistent dispersion curve!')
         return
@@ -154,6 +154,9 @@ class DispCurve(object):
         return
     
     def InterpDisp(self, T0=5., dT=1., NT=155):
+        """
+        Interpolate dispersion curve, 5 ~ 159 second
+        """
         Tinterp=T0+np.arange(NT)*dT
         if self.Vph.size == self.period.size:
             self.Vph=np.interp(Tinterp, self.period, self.Vph)

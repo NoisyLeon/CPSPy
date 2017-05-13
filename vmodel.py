@@ -27,30 +27,30 @@ class Model1d(object):
     def __init__(self, modelver='MODEL.01', modelname='TEST MODEL', modelindex=1, modelunit='KGS', earthindex=1,
             boundaryindex=1, Vindex=1, HArr=np.array([]), VsArr=np.array([]), VpArr=np.array([]), rhoArr=np.array([]),
             QpArr=np.array([]), QsArr=np.array([]), etapArr=np.array([]), etasArr=np.array([]), frefpArr=np.array([]),  frefsArr=np.array([])):
-        self.modelver=modelver
-        self.modelname=modelname
-        modeldict={1: 'ISOTROPIC', 2: 'TRANSVERSE ISOTROPIC', 3: 'ANISOTROPIC'}
-        self.modeltype=modeldict[modelindex]
-        self.modelunit=modelunit
-        earthdict={1: 'FLAT EARTH', 2:'SPHERICAL EARTH'}
-        self.earthtype=earthdict[earthindex]
-        boundarydict={1: '1-D', 2: '2-D', 3: '3-D'}
+        self.modelver   = modelver
+        self.modelname  = modelname
+        modeldict       = {1: 'ISOTROPIC', 2: 'TRANSVERSE ISOTROPIC', 3: 'ANISOTROPIC'}
+        self.modeltype  = modeldict[modelindex]
+        self.modelunit  = modelunit
+        earthdict       = {1: 'FLAT EARTH', 2:'SPHERICAL EARTH'}
+        self.earthtype  = earthdict[earthindex]
+        boundarydict    = {1: '1-D', 2: '2-D', 3: '3-D'}
         self.boundarytype=boundarydict[boundaryindex]
-        Vdict={1: 'CONSTANT VELOCITY', 2: 'VARIABLE VELOCITY'}
-        self.Vtype=Vdict[Vindex]
-        self.line08_11='LINE08\nLINE09\nLINE10\nLINE11\n'
-        self.modelheader='H   VP  VS RHO  QP  QS ETAP ETAS FREFP FREFS'
-        self.HArr=HArr
-        self.VsArr=VsArr
-        self.VpArr=VpArr
-        self.rhoArr=rhoArr
-        self.QpArr=QpArr
-        self.QsArr=QsArr
-        self.etapArr=etapArr
-        self.etasArr=etasArr
-        self.frefpArr=frefpArr
-        self.frefsArr=frefsArr
-        self.DepthArr=np.cumsum(self.HArr)
+        Vdict           = {1: 'CONSTANT VELOCITY', 2: 'VARIABLE VELOCITY'}
+        self.Vtype      = Vdict[Vindex]
+        self.line08_11  = 'LINE08\nLINE09\nLINE10\nLINE11\n'
+        self.modelheader= 'H   VP  VS RHO  QP  QS ETAP ETAS FREFP FREFS'
+        self.HArr       = HArr
+        self.VsArr      = VsArr
+        self.VpArr      = VpArr
+        self.rhoArr     = rhoArr
+        self.QpArr      = QpArr
+        self.QsArr      = QsArr
+        self.etapArr    = etapArr
+        self.etasArr    = etasArr
+        self.frefpArr   = frefpArr
+        self.frefsArr   = frefsArr
+        self.DepthArr   = np.cumsum(self.HArr)
         return
     
     def copy(self):
@@ -60,20 +60,66 @@ class Model1d(object):
         """
         ak135 model
         """
-        self.modelname = modelname
-        ak135Arr=np.loadtxt('ak135forvmodel.mod')
-        self.HArr=ak135Arr[:,0]
-        self.VpArr=ak135Arr[:,1]
-        self.VsArr=ak135Arr[:,2]
-        self.rhoArr=ak135Arr[:,3]
-        self.QpArr=ak135Arr[:,4]
-        self.QsArr=ak135Arr[:,5]
-        self.etapArr=ak135Arr[:,6]
-        self.etasArr=ak135Arr[:,7]
-        self.frefpArr=ak135Arr[:,8]
-        self.frefsArr=ak135Arr[:,9]
-        self.DepthArr=np.cumsum(self.HArr)
+        self.modelname  = modelname
+        ak135Arr        = np.loadtxt('ak135forvmodel.mod')
+        self.HArr       = ak135Arr[:,0]
+        self.VpArr      = ak135Arr[:,1]
+        self.VsArr      = ak135Arr[:,2]
+        self.rhoArr     = ak135Arr[:,3]
+        self.QpArr      = ak135Arr[:,4]
+        self.QsArr      = ak135Arr[:,5]
+        self.etapArr    = ak135Arr[:,6]
+        self.etasArr    = ak135Arr[:,7]
+        self.frefpArr   = ak135Arr[:,8]
+        self.frefsArr   = ak135Arr[:,9]
+        self.DepthArr   = np.cumsum(self.HArr)
         return
+    
+    def getmodel(self, modelname, HArr, VpArr, VsArr, rhoArr, QpArr, QsArr, etap=0., etas=0., frefp=1.0, fres=1.):
+        """
+        get model
+        """
+        self.modelname  = modelname
+        self.HArr       = HArr
+        self.VpArr      = VpArr
+        self.VsArr      = VsArr
+        self.rhoArr     = rhoArr
+        self.QpArr      = QpArr
+        self.QsArr      = QsArr
+        self.etapArr    = etap*np.ones(HArr.size)
+        self.etasArr    = etas*np.ones(HArr.size)
+        self.frefpArr   = frefp*np.ones(HArr.size)
+        self.frefsArr   = fres*np.ones(HArr.size)
+        self.DepthArr   = np.cumsum(self.HArr)
+        return
+    
+    def check_model(self):
+        if (self.HArr[self.HArr<1.0]).size %2 !=0: raise ValueError('Invalid vertical profile! Check layer thicknesses!')
+        tempH   = self.HArr[self.HArr<1.0]
+        tempVs  = self.VsArr[self.HArr<1.0]
+        tempVp  = self.VpArr[self.HArr<1.0]
+        temprho = self.rhoArr[self.HArr<1.0]
+        tempQs  = self.QsArr[self.HArr<1.0]
+        tempQp  = self.QpArr[self.HArr<1.0]
+        ind0    = np.arange(tempH.size/2, dtype=int)*2
+        ind1    = ind0 + 1
+        HArr    = np.append( (tempH[ind0] + tempH[ind1]), self.HArr[self.HArr>=1.0])
+        VsArr   = np.append( (tempVs[ind0] + tempVs[ind1])/2., self.VsArr[self.HArr>=1.0])
+        VpArr   = np.append( (tempVp[ind0] + tempVp[ind1])/2., self.VpArr[self.HArr>=1.0])
+        rhoArr  = np.append( (temprho[ind0] + temprho[ind1])/2., self.rhoArr[self.HArr>=1.0])
+        QsArr   = np.append( (tempQs[ind0] + tempQs[ind1])/2., self.QsArr[self.HArr>=1.0])
+        QpArr   = np.append( (tempQp[ind0] + tempQp[ind1])/2., self.QpArr[self.HArr>=1.0])
+        if HArr.size <= 200:
+            self.getmodel(modelname=self.modelname, HArr=HArr, VpArr=VpArr, VsArr=VsArr,
+                        rhoArr=rhoArr, QpArr=QpArr, QsArr=QsArr)
+        else:
+            self.getmodel(modelname=self.modelname, HArr=HArr[:200], VpArr=VpArr[:200], VsArr=VsArr[:200],
+                        rhoArr=rhoArr[:200], QpArr=QpArr[:200], QsArr=QsArr[:200])
+        
+        return
+        
+        
+        
 
     def addlayer(self, H, vs, vp=None, rho=None, Qp=310., Qs=150., etap=0.0, etas=0.0, frefp=1.0, frefs=1.0,
                 zmin=9999.):
@@ -279,6 +325,38 @@ class Model1d(object):
                 self.frefsArr=np.append(self.frefsArr, float(cline[9]))
         return
     
+    def read_layer_txt(self, infname):
+        vpind=None; rhoind=None
+        with open(infname) as f:
+            inline = f.readline()
+            if inline.split()[0] =='#':
+                c=inline.split()[1:]
+            c=np.array(c)
+            z0ind = np.where(c=='z0')[0][0]
+            Hind  = np.where(c=='H')[0][0]
+            vsind = np.where(c=='vs')[0][0]
+            try: vpind  = np.where(c=='vp')[0][0]
+            except: pass
+            try: rhoind = np.where(c=='rho')[0][0]
+            except: pass
+        inArr = np.loadtxt(infname)
+        z0Arr = inArr[:, z0ind]
+        HArr  = inArr[:, Hind]
+        vsArr = inArr[:, vsind]
+        # if vsind != None: vsArr = inArr[:, vsind]
+        if vpind != None: vpArr = inArr[:, vpind]
+        if rhoind != None: rhoArr = inArr[:, rhoind]
+        for i in xrange(z0Arr.size):
+            z0 = z0Arr[i]; H = HArr[i]; vs=vsArr[i]
+            if vpind==None and rhoind ==None: self.addlayer( H=H, vs=vs, vp=None, rho=None, zmin=z0)
+            elif vpind==None and rhoind !=None:
+                rho=rhoArr[i]; self.addlayer( H=H, vs=vs, vp=None, rho=rho, zmin=z0)
+            elif vpind!=None and rhoind ==None:
+                vp=vpArr[i]; self.addlayer( H=H, vs=vs, vp=vp, rho=None, zmin=z0)
+            elif vpind!=None and rhoind !=None:
+                vp=vpArr[i]; rho=rhoArr[i]; self.addlayer( H=H, vs=vs, vp=vp, rho=rho, zmin=z0)
+        return
+    
     def perturb(self, dm, zmin=0, zmax=9999, datatype='vs'):
         """ Add perturbation to the model given a depth range
         =======================================================
@@ -455,6 +533,8 @@ class Model1d(object):
         plt.show()
         return
     
+
+    
 class vprofile(object):
     def __init__(self, vsArr=np.array([]), vpArr=np.array([]), rhoArr=np.array([]), RmaxArr=np.array([]), RminArr=np.array([]),
                  z0Arr=np.array([]), HArr=np.array([]), xArr=np.array([]), yArr=np.array([]), dtypeArr=np.array([]), infname=None ):
@@ -606,4 +686,7 @@ class vprofile(object):
         self.z0Arr=np.append( self.z0Arr, z0)
         self.dtypeArr=np.append( self.dtypeArr, dtype)
         return
+    
+
+        
     

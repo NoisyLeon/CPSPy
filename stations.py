@@ -9,11 +9,11 @@ class StaInfo(object):
     An object contains a station information several methods for station related analysis.
     -----------------------------------------------------------------------------------------------------
     General Parameters:
-    stacode      - station name
-    network     - network
-    chan          - channels for analysis
-    lon, lat, z           - position for station
-    distance    - epicentral distance
+    stacode         - station name
+    network         - network
+    chan            - channels for analysis
+    lon, lat, z     - position for station
+    distance        - epicentral distance
     -----------------------------------------------------------------------------------------------------
     """
     def __init__(self, stacode=None, network='CPS', lon=None, lat=None, z=0, distance=None):
