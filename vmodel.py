@@ -8,7 +8,7 @@ import copy
 class Model1d(object):
     """
     An object to handle input 1d model for Computer Programs in Seismology.
-    ============================================================================================
+    ===========================================================================================================
     Parameters:
     modelver        - model version
     modelname       - model name
@@ -20,9 +20,11 @@ class Model1d(object):
     Vindex          - index indicating nature of layer velocity
     HArr            - layer thickness array
     VsArr, VpArr, rhoArr, QpArr, QsArr, etapArr, etasArr, frefpArr,  frefsArr
-                    - model parameters
-    DepthArr        - depth array
-    ============================================================================================
+                    - model parameters (isotropic)
+    VsvArr, VpvArr, VshArr, VphArr, VpfArr, rhoArr, QpArr, QsArr, etapArr, etasArr, frefpArr,  frefsArr
+                    - model parameters (TI)                
+    DepthArr        - depth array (bottom depth of each layer)
+    ===========================================================================================================
     """
     def __init__(self, modelver='MODEL.01', modelname='TEST MODEL', modelindex=1, modelunit='KGS', earthindex=1,
             boundaryindex=1, Vindex=1, HArr=np.array([]), VsArr=np.array([]), VpArr=np.array([]), rhoArr=np.array([]),
@@ -30,6 +32,8 @@ class Model1d(object):
         self.modelver   = modelver
         self.modelname  = modelname
         modeldict       = {1: 'ISOTROPIC', 2: 'TRANSVERSE ISOTROPIC', 3: 'ANISOTROPIC'}
+        if modelindex != 1 and modelindex != 2:
+            raise ValueError('Error in model index, currently only support 1 : ISOTROPIC and 2: TRANSVERSE ISOTROPIC')
         self.modeltype  = modeldict[modelindex]
         self.modelunit  = modelunit
         earthdict       = {1: 'FLAT EARTH', 2:'SPHERICAL EARTH'}
@@ -41,8 +45,18 @@ class Model1d(object):
         self.line08_11  = 'LINE08\nLINE09\nLINE10\nLINE11\n'
         self.modelheader= 'H   VP  VS RHO  QP  QS ETAP ETAS FREFP FREFS'
         self.HArr       = HArr
-        self.VsArr      = VsArr
-        self.VpArr      = VpArr
+        if self.modeltype == 'ISOTROPIC':
+            self.VsArr      = VsArr
+            self.VpArr      = VpArr
+        elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+            self.VsvArr     = VsArr
+            self.VpvArr     = VpArr
+            self.VshArr     = VsArr
+            self.VphArr     = VpArr
+            if VsArr.size == 0 or VpArr.size==0 or VsArr.size != VpArr.size:
+                self.VpfArr = np.array([])
+            else:
+                self.VpfArr = np.sqrt(VpArr**2 - 2*VsArr**2)
         self.rhoArr     = rhoArr
         self.QpArr      = QpArr
         self.QsArr      = QsArr
@@ -53,18 +67,24 @@ class Model1d(object):
         self.DepthArr   = np.cumsum(self.HArr)
         return
     
-    def copy(self):
-        return copy.deepcopy(self)
+    def copy(self): return copy.deepcopy(self)
     
     def ak135(self, modelname='AK135 CONTINENTAL MODEL'):
         """
         ak135 model
         """
         self.modelname  = modelname
-        ak135Arr        = np.loadtxt('ak135forvmodel.mod')
+        ak135Arr        = np.loadtxt('ak135_dbase.txt')
         self.HArr       = ak135Arr[:,0]
-        self.VpArr      = ak135Arr[:,1]
-        self.VsArr      = ak135Arr[:,2]
+        if self.modeltype == 'ISOTROPIC':
+            self.VpArr      = ak135Arr[:,1]
+            self.VsArr      = ak135Arr[:,2]
+        elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+            self.VsvArr     = ak135Arr[:,2]
+            self.VpvArr     = ak135Arr[:,1]
+            self.VshArr     = ak135Arr[:,2]
+            self.VphArr     = ak135Arr[:,1]
+            self.VpfArr     = np.sqrt ( (ak135Arr[:,1])**2 - 2.*((ak135Arr[:,2])**2) )
         self.rhoArr     = ak135Arr[:,3]
         self.QpArr      = ak135Arr[:,4]
         self.QsArr      = ak135Arr[:,5]
@@ -75,14 +95,21 @@ class Model1d(object):
         self.DepthArr   = np.cumsum(self.HArr)
         return
     
-    def getmodel(self, modelname, HArr, VpArr, VsArr, rhoArr, QpArr, QsArr, etap=0., etas=0., frefp=1.0, fres=1.):
+    def getisomodel(self, modelname, HArr, VpArr, VsArr, rhoArr, QpArr, QsArr, etap=0., etas=0., frefp=1.0, fres=1.):
         """
         get model
         """
         self.modelname  = modelname
         self.HArr       = HArr
-        self.VpArr      = VpArr
-        self.VsArr      = VsArr
+        if self.modeltype == 'ISOTROPIC':
+            self.VsArr      = VsArr
+            self.VpArr      = VpArr
+        elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+            self.VsvArr     = VsArr
+            self.VpvArr     = VpArr
+            self.VshArr     = VsArr
+            self.VphArr     = VpArr
+            self.VpfArr     = np.sqrt(VpArr**2 - 2.*(VsArr**2))
         self.rhoArr     = rhoArr
         self.QpArr      = QpArr
         self.QsArr      = QsArr
@@ -93,7 +120,8 @@ class Model1d(object):
         self.DepthArr   = np.cumsum(self.HArr)
         return
     
-    def check_model(self):
+    def check_iso_model(self):
+        if self.modeltype != 'ISOTROPIC': raise ValueError('check_iso_model function only works for isotropic model!')
         if (self.HArr[self.HArr<1.0]).size %2 !=0: raise ValueError('Invalid vertical profile! Check layer thicknesses!')
         tempH   = self.HArr[self.HArr<1.0]
         tempVs  = self.VsArr[self.HArr<1.0]
@@ -103,32 +131,31 @@ class Model1d(object):
         tempQp  = self.QpArr[self.HArr<1.0]
         ind0    = np.arange(tempH.size/2, dtype=int)*2
         ind1    = ind0 + 1
-        HArr    = np.append( (tempH[ind0] + tempH[ind1]), self.HArr[self.HArr>=1.0])
-        VsArr   = np.append( (tempVs[ind0] + tempVs[ind1])/2., self.VsArr[self.HArr>=1.0])
-        VpArr   = np.append( (tempVp[ind0] + tempVp[ind1])/2., self.VpArr[self.HArr>=1.0])
-        rhoArr  = np.append( (temprho[ind0] + temprho[ind1])/2., self.rhoArr[self.HArr>=1.0])
-        QsArr   = np.append( (tempQs[ind0] + tempQs[ind1])/2., self.QsArr[self.HArr>=1.0])
-        QpArr   = np.append( (tempQp[ind0] + tempQp[ind1])/2., self.QpArr[self.HArr>=1.0])
+        HArr    = np.append( (tempH[ind0] + tempH[ind1]), self.HArr[self.HArr>=1.0] )
+        VsArr   = np.append( (tempVs[ind0] + tempVs[ind1])/2., self.VsArr[self.HArr>=1.0] )
+        VpArr   = np.append( (tempVp[ind0] + tempVp[ind1])/2., self.VpArr[self.HArr>=1.0] )
+        rhoArr  = np.append( (temprho[ind0] + temprho[ind1])/2., self.rhoArr[self.HArr>=1.0] )
+        QsArr   = np.append( (tempQs[ind0] + tempQs[ind1])/2., self.QsArr[self.HArr>=1.0] )
+        QpArr   = np.append( (tempQp[ind0] + tempQp[ind1])/2., self.QpArr[self.HArr>=1.0] )
         if HArr.size <= 200:
             self.getmodel(modelname=self.modelname, HArr=HArr, VpArr=VpArr, VsArr=VsArr,
                         rhoArr=rhoArr, QpArr=QpArr, QsArr=QsArr)
         else:
             self.getmodel(modelname=self.modelname, HArr=HArr[:200], VpArr=VpArr[:200], VsArr=VsArr[:200],
                         rhoArr=rhoArr[:200], QpArr=QpArr[:200], QsArr=QsArr[:200])
-        
         return
-        
-        
-        
 
-    def addlayer(self, H, vs, vp=None, rho=None, Qp=310., Qs=150., etap=0.0, etas=0.0, frefp=1.0, frefs=1.0,
-                zmin=9999.):
+    def addlayer(self, H, vsv, vsh=None, vpv=None, vph=None, vpf=None, rho=None,
+                Qp=310., Qs=150., etap=0.0, etas=0.0, frefp=1.0, frefs=1.0, zmin=9999.):
         """ Add layer to the model
         =========================================================================================================================
         Input Parameters:
         H               - layer thickness
-        vs              - vs
-        vp, rho         - vp, rho default is None by assuming Brocher Crust
+        vsv, vsh        - SV/SH velocity
+        vpv, vph        - PV/PH velocity
+        vpf             - constructed velocity related to F modulus
+        rho             - density
+                            default is None by assuming Brocher Crust
         Qp, Qs          - quality factor
         etap, etas, frefp, frefs
                         - see the manual for computer programs in seismology
@@ -139,138 +166,219 @@ class Model1d(object):
                             3. else, the code will replace some part of preexisting model( this part need further checking! )
         =========================================================================================================================
         """
-        if vp  is None:
-            vp=0.9409+2.0947*vs-0.8206*vs**2+0.2683*vs**3-0.0251*vs**4
-        if rho is None:
-            rho=1.6612*vp-0.4721*vp**2+0.0671*vp**3-0.0043*vp**4+0.000106*vp**5
+        #####
+        # Default: Brocher crust
+        #####
+        if vpv  is None: vpv    = 0.9409+2.0947*vsv-0.8206*vsv**2+0.2683*vsv**3-0.0251*vsv**4
+        if vph  is None: vph    = vpv
+        if vsh  is None: vsh    = vsv
+        if rho  is None: rho    = 1.6612*vpv-0.4721*vpv**2+0.0671*vpv**3-0.0043*vpv**4+0.000106*vpv**5
+        if vpf  is None: vpf    = np.sqrt(vpv**2 - 2.*vsv**2)
         if zmin >= self.DepthArr[-1]:
-            self.HArr=np.append(self.HArr, H)
-            self.VpArr=np.append(self.VpArr, vp)
-            self.VsArr=np.append(self.VsArr, vs)
-            self.rhoArr=np.append(self.rhoArr, rho)
-            self.QpArr=np.append(self.QpArr, Qp)
-            self.QsArr=np.append(self.QsArr, Qs)
-            self.etapArr=np.append(self.etapArr, etap)
-            self.etasArr=np.append(self.etasArr, etas)
-            self.frefpArr=np.append(self.frefpArr, frefp)
-            self.frefsArr=np.append(self.frefsArr, frefs)
-            self.DepthArr=np.cumsum(self.HArr)
+            self.HArr       = np.append(self.HArr, H)
+            if self.modeltype == 'ISOTROPIC':
+                self.VpArr  = np.append(self.VpArr, vpv)
+                self.VsArr  = np.append(self.VsArr, vsv)
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                self.VpvArr = np.append(self.VpvArr, vpv)
+                self.VsvArr = np.append(self.VsvArr, vsv)
+                self.VphArr = np.append(self.VpArr, vph)
+                self.VshArr = np.append(self.VsArr, vsh)
+                self.VpfArr = np.append(self.VpfArr, vpf)
+            self.rhoArr     = np.append(self.rhoArr, rho)
+            self.QpArr      = np.append(self.QpArr, Qp)
+            self.QsArr      = np.append(self.QsArr, Qs)
+            self.etapArr    = np.append(self.etapArr, etap)
+            self.etasArr    = np.append(self.etasArr, etas)
+            self.frefpArr   = np.append(self.frefpArr, frefp)
+            self.frefsArr   = np.append(self.frefsArr, frefs)
+            self.DepthArr   = np.cumsum(self.HArr)
         elif zmin <= 0.:
             # discard layers with depth < H
-            self.HArr=self.HArr[self.DepthArr >H]
-            self.VpArr=self.VpArr[self.DepthArr >H]
-            self.VsArr=self.VsArr[self.DepthArr >H]
-            self.rhoArr=self.rhoArr[self.DepthArr >H]
-            self.QpArr=self.QpArr[self.DepthArr >H]
-            self.QsArr=self.QsArr[self.DepthArr >H]
-            self.etapArr=self.etapArr[self.DepthArr >H]
-            self.etasArr=self.etasArr[self.DepthArr >H]
-            self.frefpArr=self.frefpArr[self.DepthArr >H]
-            self.frefsArr=self.frefsArr[self.DepthArr >H]
+            self.HArr       = self.HArr[self.DepthArr >H]
+            if self.modeltype == 'ISOTROPIC':
+                self.VpArr      = self.VpArr[self.DepthArr >H]
+                self.VsArr      = self.VsArr[self.DepthArr >H]
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                self.VpvArr     = self.VpvArr[self.DepthArr >H]
+                self.VsvArr     = self.VsvArr[self.DepthArr >H]
+                self.VphArr     = self.VphArr[self.DepthArr >H]
+                self.VshArr     = self.VshArr[self.DepthArr >H]
+                self.VpfArr     = self.VpfArr[self.DepthArr >H]
+            self.rhoArr     = self.rhoArr[self.DepthArr >H]
+            self.QpArr      = self.QpArr[self.DepthArr >H]
+            self.QsArr      = self.QsArr[self.DepthArr >H]
+            self.etapArr    = self.etapArr[self.DepthArr >H]
+            self.etasArr    = self.etasArr[self.DepthArr >H]
+            self.frefpArr   = self.frefpArr[self.DepthArr >H]
+            self.frefsArr   = self.frefsArr[self.DepthArr >H]
             # change the thickness of the current first layer
-            self.HArr[0]=(self.DepthArr[self.DepthArr >H])[0]-H
+            self.HArr[0]    = (self.DepthArr[self.DepthArr >H])[0]-H
             # add H to the first layer
-            self.HArr=np.append(H, self.HArr)
-            self.VpArr=np.append(vp, self.VpArr)
-            self.VsArr=np.append(vs, self.VsArr)
-            self.rhoArr=np.append(rho, self.rhoArr)
-            self.QpArr=np.append(Qp, self.QpArr)
-            self.QsArr=np.append(Qs, self.QsArr)
-            self.etapArr=np.append(etap, self.etapArr)
-            self.etasArr=np.append(etas, self.etasArr)
-            self.frefpArr=np.append(frefp, self.frefpArr)
-            self.frefsArr=np.append(frefs, self.frefsArr)
-            self.DepthArr=np.cumsum(self.HArr)
+            self.HArr       = np.append(H, self.HArr)
+            if self.modeltype == 'ISOTROPIC':
+                self.VpArr      = np.append(vp, self.VpArr)
+                self.VsArr      = np.append(vs, self.VsArr)
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                self.VpvArr     = np.append(vpv, self.VpvArr)
+                self.VsvArr     = np.append(vsv, self.VsvArr)
+                self.VphArr     = np.append(vph, self.VphArr)
+                self.VshArr     = np.append(vsh, self.VshArr)
+                self.VpfArr     = np.append(vpf, self.VpfArr)
+            self.rhoArr     = np.append(rho, self.rhoArr)
+            self.QpArr      = np.append(Qp, self.QpArr)
+            self.QsArr      = np.append(Qs, self.QsArr)
+            self.etapArr    = np.append(etap, self.etapArr)
+            self.etasArr    = np.append(etas, self.etasArr)
+            self.frefpArr   = np.append(frefp, self.frefpArr)
+            self.frefsArr   = np.append(frefs, self.frefsArr)
+            self.DepthArr   = np.cumsum(self.HArr)
         else:
-            zmax=zmin+H
-            topArr=self.DepthArr-self.HArr
+            zmax        = zmin+H
+            topArr      = self.DepthArr-self.HArr
             # Top layers above zmin
-            HArrT=self.HArr[self.DepthArr <=zmin]
-            VpArrT=self.VpArr[self.DepthArr <=zmin]
-            VsArrT=self.VsArr[self.DepthArr <=zmin]
-            rhoArrT=self.rhoArr[self.DepthArr <=zmin]
-            QpArrT=self.QpArr[self.DepthArr <=zmin]
-            QsArrT=self.QsArr[self.DepthArr <=zmin]
-            etapArrT=self.etapArr[self.DepthArr <=zmin]
-            etasArrT=self.etasArr[self.DepthArr <=zmin]
-            frefpArrT=self.frefpArr[self.DepthArr <=zmin]
-            frefsArrT=self.frefsArr[self.DepthArr <=zmin]
-            tH= zmin - (topArr[self.DepthArr >zmin]) [0]
-            if tH !=0:
-                tVp=(self.VpArr[self.DepthArr >zmin])[0]
-                tVs=(self.VsArr[self.DepthArr >zmin])[0]
-                trho=(self.rhoArr[self.DepthArr >zmin])[0]
-                tQp=(self.QpArr[self.DepthArr >zmin])[0]
-                tQs=(self.QsArr[self.DepthArr >zmin])[0]
-                tetap=(self.etapArr[self.DepthArr >zmin])[0]
-                tetas=(self.etasArr[self.DepthArr >zmin])[0]
-                tfrefp=(self.frefpArr[self.DepthArr >zmin])[0]
-                tfrefs=(self.frefsArr[self.DepthArr >zmin])[0]
-                HArrT=np.append(HArrT, tH)
-                VpArrT=np.append(VpArrT, tVp)
-                VsArrT=np.append(VsArrT, tVs)
-                rhoArrT=np.append(rhoArrT, trho)
-                QpArrT=np.append(QpArrT, tQp)
-                QsArrT=np.append(QsArrT, tQs)
-                etapArrT=np.append(etapArrT, tetap)
-                etasArrT=np.append(etasArrT, tetas)
-                frefpArrT=np.append(frefpArrT, tfrefp)
-                frefsArrT=np.append(frefsArrT, tfrefs)
+            HArrT       = self.HArr[self.DepthArr <=zmin]
+            if self.modeltype == 'ISOTROPIC':
+                VpArrT      = self.VpArr[self.DepthArr <=zmin]
+                VsArrT      = self.VsArr[self.DepthArr <=zmin]
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                VpvArrT     = self.VpvArr[self.DepthArr <=zmin]
+                VsvArrT     = self.VsvArr[self.DepthArr <=zmin]
+                VphArrT     = self.VphArr[self.DepthArr <=zmin]
+                VshArrT     = self.VshArr[self.DepthArr <=zmin]
+                VpfArrT     = self.VpfArr[self.DepthArr <=zmin]
+            rhoArrT     = self.rhoArr[self.DepthArr <=zmin]
+            QpArrT      = self.QpArr[self.DepthArr <=zmin]
+            QsArrT      = self.QsArr[self.DepthArr <=zmin]
+            etapArrT    = self.etapArr[self.DepthArr <=zmin]
+            etasArrT    = self.etasArr[self.DepthArr <=zmin]
+            frefpArrT   = self.frefpArr[self.DepthArr <=zmin]
+            frefsArrT   = self.frefsArr[self.DepthArr <=zmin]
+            tH          = zmin - (topArr[self.DepthArr >zmin]) [0]
+            if tH != 0:
+                if self.modeltype == 'ISOTROPIC':
+                    tVp         = (self.VpArr[self.DepthArr >zmin])[0]
+                    tVs         = (self.VsArr[self.DepthArr >zmin])[0]
+                elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                    tVpv        = (self.VpvArr[self.DepthArr >zmin])[0]
+                    tVsv        = (self.VsvArr[self.DepthArr >zmin])[0]
+                    tVph        = (self.VphArr[self.DepthArr >zmin])[0]
+                    tVsh        = (self.VshArr[self.DepthArr >zmin])[0]
+                    tVpf        = (self.VpfArr[self.DepthArr >zmin])[0]
+                trho        = (self.rhoArr[self.DepthArr >zmin])[0]
+                tQp         = (self.QpArr[self.DepthArr >zmin])[0]
+                tQs         = (self.QsArr[self.DepthArr >zmin])[0]
+                tetap       = (self.etapArr[self.DepthArr >zmin])[0]
+                tetas       = (self.etasArr[self.DepthArr >zmin])[0]
+                tfrefp      = (self.frefpArr[self.DepthArr >zmin])[0]
+                tfrefs      = (self.frefsArr[self.DepthArr >zmin])[0]
+                HArrT       = np.append(HArrT, tH)
+                if self.modeltype == 'ISOTROPIC':
+                    VpArrT      = np.append(VpArrT, tVp)
+                    VsArrT      = np.append(VsArrT, tVs)
+                elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                    VpvArrT     = np.append(VpvArrT, tVpv)
+                    VsvArrT     = np.append(VsvArrT, tVsv)
+                    VphArrT     = np.append(VphArrT, tVph)
+                    VshArrT     = np.append(VshArrT, tVsh)
+                    VpfArrT     = np.append(VpfArrT, tVpf)
+                rhoArrT     = np.append(rhoArrT, trho)
+                QpArrT      = np.append(QpArrT, tQp)
+                QsArrT      = np.append(QsArrT, tQs)
+                etapArrT    = np.append(etapArrT, tetap)
+                etasArrT    = np.append(etasArrT, tetas)
+                frefpArrT   = np.append(frefpArrT, tfrefp)
+                frefsArrT   = np.append(frefsArrT, tfrefs)
             # Bottom layer bolow zmax
-            HArrB=self.HArr[topArr >=zmax]
-            VpArrB=self.VpArr[topArr >=zmax]
-            VsArrB=self.VsArr[topArr >=zmax]
-            rhoArrB=self.rhoArr[topArr >=zmax]
-            QpArrB=self.QpArr[topArr >=zmax]
-            QsArrB=self.QsArr[topArr >=zmax]
-            etapArrB=self.etapArr[topArr >=zmax]
-            etasArrB=self.etasArr[topArr >=zmax]
-            frefpArrB=self.frefpArr[topArr >=zmax]
-            frefsArrB=self.frefsArr[topArr >=zmax]
-            bH=  (self.DepthArr[topArr <zmax]) [-1]- zmax
-            if bH !=0:
-                bVp=(self.VpArr[topArr <zmax]) [-1]
-                bVs=(self.VsArr[topArr <zmax]) [-1]
-                brho=(self.rhoArr[topArr <zmax]) [-1]
-                bQp=(self.QpArr[topArr <zmax]) [-1]
-                bQs=(self.QsArr[topArr <zmax]) [-1]
-                betap=(self.etapArr[topArr <zmax]) [-1]
-                betas=(self.etasArr[topArr <zmax]) [-1]
-                bfrefp=(self.frefpArr[topArr <zmax]) [-1]
-                bfrefs=(self.frefsArr[topArr <zmax]) [-1]
-                HArrB=np.append(bH, HArrB)
-                VpArrB=np.append(bVp, VpArrB)
-                VsArrB=np.append(bVs, VsArrB)
-                rhoArrB=np.append(brho, rhoArrB)
-                QpArrB=np.append(bQp, QpArrB)
-                QsArrB=np.append(bQs, QsArrB)
-                etapArrB=np.append(betap, etapArrB)
-                etasArrB=np.append(betas, etasArrB)
-                frefpArrB=np.append(bfrefp, frefpArrB)
-                frefsArrB=np.append(bfrefs, frefsArrB)
+            HArrB       = self.HArr[topArr >=zmax]
+            if self.modeltype == 'ISOTROPIC':
+                VpArrB      = self.VpArr[topArr >=zmax]
+                VsArrB      = self.VsArr[topArr >=zmax]
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                VpvArrB     = self.VpvArr[topArr >=zmax]
+                VsvArrB     = self.VsvArr[topArr >=zmax]
+                VphArrB     = self.VphArr[topArr >=zmax]
+                VshArrB     = self.VshArr[topArr >=zmax]
+                VpfArrB     = self.VpfArr[topArr >=zmax]
+            rhoArrB     = self.rhoArr[topArr >=zmax]
+            QpArrB      = self.QpArr[topArr >=zmax]
+            QsArrB      = self.QsArr[topArr >=zmax]
+            etapArrB    = self.etapArr[topArr >=zmax]
+            etasArrB    = self.etasArr[topArr >=zmax]
+            frefpArrB   = self.frefpArr[topArr >=zmax]
+            frefsArrB   = self.frefsArr[topArr >=zmax]
+            bH          = (self.DepthArr[topArr <zmax]) [-1]- zmax
+            if bH != 0:
+                if self.modeltype == 'ISOTROPIC':
+                    bVp         = (self.VpArr[topArr <zmax]) [-1]
+                    bVs         = (self.VsArr[topArr <zmax]) [-1]
+                elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                    bVpv        = (self.VpvArr[topArr <zmax]) [-1]
+                    bVsv        = (self.VsvArr[topArr <zmax]) [-1]
+                    bVph        = (self.VphArr[topArr <zmax]) [-1]
+                    bVsh        = (self.VshArr[topArr <zmax]) [-1]
+                    bVpf        = (self.VpfArr[topArr <zmax]) [-1]
+                brho        = (self.rhoArr[topArr <zmax]) [-1]
+                bQp         = (self.QpArr[topArr <zmax]) [-1]
+                bQs         = (self.QsArr[topArr <zmax]) [-1]
+                betap       = (self.etapArr[topArr <zmax]) [-1]
+                betas       = (self.etasArr[topArr <zmax]) [-1]
+                bfrefp      = (self.frefpArr[topArr <zmax]) [-1]
+                bfrefs      = (self.frefsArr[topArr <zmax]) [-1]
+                HArrB       = np.append(bH, HArrB)
+                if self.modeltype == 'ISOTROPIC':
+                    VpArrB      = np.append(bVp, VpArrB)
+                    VsArrB      = np.append(bVs, VsArrB)
+                elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                    VpvArrB     = np.append(bVpv, VpvArrB)
+                    VsvArrB     = np.append(bVsv, VsvArrB)
+                    VphArrB     = np.append(bVph, VphArrB)
+                    VshArrB     = np.append(bVsh, VshArrB)
+                    VpfArrB     = np.append(bVpf, VpfArrB)
+                rhoArrB     = np.append(brho, rhoArrB)
+                QpArrB      = np.append(bQp, QpArrB)
+                QsArrB      = np.append(bQs, QsArrB)
+                etapArrB    = np.append(betap, etapArrB)
+                etasArrB    = np.append(betas, etasArrB)
+                frefpArrB   = np.append(bfrefp, frefpArrB)
+                frefsArrB   = np.append(bfrefs, frefsArrB)
             #####################################
-            self.HArr=np.append(HArrT, H)
-            self.VpArr=np.append(VpArrT, vp)
-            self.VsArr=np.append(VsArrT, vs)
-            self.rhoArr=np.append(rhoArrT, rho)
-            self.QpArr=np.append(QpArrT, Qp)
-            self.QsArr=np.append(QsArrT, Qs)
-            self.etapArr=np.append(etapArrT, etap)
-            self.etasArr=np.append(etasArrT, etas)
-            self.frefpArr=np.append(frefpArrT, frefp)
-            self.frefsArr=np.append(frefsArrT,frefs)
+            self.HArr       = np.append(HArrT, H)
+            if self.modeltype == 'ISOTROPIC':
+                self.VpArr      = np.append(VpArrT, vp)
+                self.VsArr      = np.append(VsArrT, vs)
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                self.VpvArr     = np.append(VpvArrT, vpv)
+                self.VsvArr     = np.append(VsvArrT, vsv)
+                self.VphArr     = np.append(VphArrT, vph)
+                self.VshArr     = np.append(VshArrT, vsh)
+                self.VpfArr     = np.append(VpfArrT, vpf)
+            self.rhoArr     = np.append(rhoArrT, rho)
+            self.QpArr      = np.append(QpArrT, Qp)
+            self.QsArr      = np.append(QsArrT, Qs)
+            self.etapArr    = np.append(etapArrT, etap)
+            self.etasArr    = np.append(etasArrT, etas)
+            self.frefpArr   = np.append(frefpArrT, frefp)
+            self.frefsArr   = np.append(frefsArrT,frefs)
             #####################################
-            self.HArr=np.append(self.HArr, HArrB)
-            self.VpArr=np.append(self.VpArr, VpArrB)
-            self.VsArr=np.append(self.VsArr, VsArrB)
-            self.rhoArr=np.append(self.rhoArr, rhoArrB)
-            self.QpArr=np.append(self.QpArr, QpArrB)
-            self.QsArr=np.append(self.QsArr, QsArrB)
-            self.etapArr=np.append(self.etapArr, etapArrB)
-            self.etasArr=np.append(self.etasArr, etasArrB)
-            self.frefpArr=np.append(self.frefpArr, frefpArrB)
-            self.frefsArr=np.append(self.frefsArr, frefsArrB)
-            self.DepthArr=np.cumsum(self.HArr)
+            self.HArr       = np.append(self.HArr, HArrB)
+            if self.modeltype == 'ISOTROPIC':
+                self.VpArr      = np.append(self.VpArr, VpArrB)
+                self.VsArr      = np.append(self.VsArr, VsArrB)
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                self.VpvArr     = np.append(self.VpvArr, VpvArrB)
+                self.VsvArr     = np.append(self.VsvArr, VsvArrB)
+                self.VphArr     = np.append(self.VphArr, VphArrB)
+                self.VshArr     = np.append(self.VshArr, VshArrB)
+                self.VpfArr     = np.append(self.VpfArr, VpfArrB)
+            self.rhoArr     = np.append(self.rhoArr, rhoArrB)
+            self.QpArr      = np.append(self.QpArr, QpArrB)
+            self.QsArr      = np.append(self.QsArr, QsArrB)
+            self.etapArr    = np.append(self.etapArr, etapArrB)
+            self.etasArr    = np.append(self.etasArr, etasArrB)
+            self.frefpArr   = np.append(self.frefpArr, frefpArrB)
+            self.frefsArr   = np.append(self.frefsArr, frefsArrB)
+            self.DepthArr   = np.cumsum(self.HArr)
         return
 
 
@@ -288,7 +396,7 @@ class Model1d(object):
             f.write(self.Vtype+'\n')
             f.write(self.line08_11)
             f.write(self.modelheader+'\n')
-            for i in np.arange(self.HArr.size):
+            for i in xrange(self.HArr.size):
                 tempstr='%f %f %f %f %f %f %f %f %f %f \n' %(self.HArr[i], self.VpArr[i], self.VsArr[i], self.rhoArr[i],
                         self.QpArr[i], self.QsArr[i], self.etapArr[i], self.etasArr[i], self.frefpArr[i], self.frefsArr[i])
                 f.write(tempstr)

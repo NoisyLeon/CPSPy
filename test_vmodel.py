@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 model=vmodel.Model1d()
 model.ak135()
-model.read_layer_txt('../SW4Py/cpsin_staircase_1km.txt')
-model.write('./staircase_1km.mod')
+# model.read_layer_txt('../SW4Py/cpsin_staircase_1km.txt')
+# model.write('./staircase_1km.mod')
 # model1=model.copy()
 # model2=model.copy()
 # zmin=13
