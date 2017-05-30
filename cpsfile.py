@@ -10,7 +10,7 @@ def is_int(s):
     
 class DistFile(object):
     """
-    An object to distance file for Computer Programs in Seismology.
+    An object for distance file of Computer Programs in Seismology.
     ========================================================================
     Parameters:
     distArr     - distance for origin point
@@ -45,12 +45,12 @@ class DistFile(object):
         return
     
     def write(self, distfname):
-        outArr=np.append(self.distArr, self.dtArr)
-        outArr=np.append(outArr, self.nptsArr)
-        outArr=np.append(outArr, self.T0Arr)
-        outArr=np.append(outArr, self.VredArr)
-        outArr=outArr.reshape(5, self.distArr.size)
-        outArr=outArr.T
+        outArr  = np.append(self.distArr, self.dtArr)
+        outArr  = np.append(outArr, self.nptsArr)
+        outArr  = np.append(outArr, self.T0Arr)
+        outArr  = np.append(outArr, self.VredArr)
+        outArr  = outArr.reshape(5, self.distArr.size)
+        outArr  = outArr.T
         np.savetxt(distfname, outArr, fmt='%f %f %d %f %f')
         return
     
