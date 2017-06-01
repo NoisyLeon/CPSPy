@@ -96,9 +96,10 @@ class Model1d(object):
         self.frefpArr   = ak135Arr[:,8]
         self.frefsArr   = ak135Arr[:,9]
         self.DepthArr   = np.cumsum(self.HArr)
+        self.check_model(verbose=False, trim=True)
         return
     
-    def getisomodel(self, modelname, HArr, VpArr, VsArr, rhoArr, QpArr, QsArr, etap=0., etas=0., frefp=1.0, fres=1.):
+    def getmodel(self, modelname, HArr, VpArr, VsArr, rhoArr, QpArr, QsArr, etap=0., etas=0., frefp=1.0, fres=1.):
         """
         get model
         """
@@ -122,6 +123,145 @@ class Model1d(object):
         self.frefsArr   = fres*np.ones(HArr.size)
         self.DepthArr   = np.cumsum(self.HArr)
         return
+    
+    def trim(self, ind0=None, indf=None, zmax=None):
+        add_last_layer  = False
+        if zmax != None and indf == None:
+            index = (np.where(self.DepthArr> zmax)[0])
+            if index.size != 0:
+                indf = index[0]
+                if self.DepthArr[indf-1] < zmax:
+                    add_last_layer = True
+                    H       = zmax - self.DepthArr[indf-1]
+                    if self.modeltype == 'ISOTROPIC':
+                        vs  = self.VsArr[indf]
+                        vp  = self.VpArr[indf]
+                    elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                        vsv = self.VsvArr[indf]
+                        vpv = self.VpvArr[indf]
+                        vsh = self.VshArr[indf]
+                        vph = self.VphArr[indf]
+                        vpf = self.VpfArr[indf]
+                    rho     = self.rhoArr[indf]
+                    Qp      = self.QpArr[indf]
+                    Qs      = self.QsArr[indf]
+                    etap    = self.etapArr[indf]
+                    etas    = self.etasArr[indf]
+                    frefp   = self.frefpArr[indf]
+                    frefs   = self.frefsArr[indf]
+        self.HArr       = self.HArr[ind0:indf]
+        if self.modeltype == 'ISOTROPIC':
+            self.VpArr      = self.VpArr[ind0:indf]
+            self.VsArr      = self.VsArr[ind0:indf]
+        elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+            self.VsvArr     = self.VsvArr[ind0:indf]
+            self.VpvArr     = self.VpvArr[ind0:indf]
+            self.VshArr     = self.VshArr[ind0:indf]
+            self.VphArr     = self.VphArr[ind0:indf]
+            self.VpfArr     = self.VpfArr[ind0:indf]
+        self.rhoArr     = self.rhoArr[ind0:indf]
+        self.QpArr      = self.QpArr[ind0:indf]
+        self.QsArr      = self.QsArr[ind0:indf]
+        self.etapArr    = self.etapArr[ind0:indf]
+        self.etasArr    = self.etasArr[ind0:indf]
+        self.frefpArr   = self.frefpArr[ind0:indf]
+        self.frefsArr   = self.frefsArr[ind0:indf]
+        self.DepthArr   = self.DepthArr[ind0:indf]
+        if add_last_layer:
+            if self.modeltype == 'ISOTROPIC':
+                self.addlayer(H=H, vsv=vs, vsh=vs, vpv=vp, vph=vp, rho=rho,
+                                    Qp=Qp, Qs=Qs, etap=etap, etas=etas, frefp=frefp, frefs=frefs)
+            if self.modeltype == 'TRANSVERSE ISOTROPIC':
+                self.addlayer(H=H, vsv=vsv, vsh=vsh, vpv=vpv, vph=vph, vpf=vpf, rho=rho,
+                                    Qp=Qp, Qs=Qs, etap=etap, etas=etas, frefp=frefp, frefs=frefs)
+        if self.HArr.size == 0:
+            print 'WARNING: trimed model has a length of zero!'
+        return
+    
+    def relayerize(self, h, npinterp=False):
+        tmodel      = self.copy()
+        zmax        = self.DepthArr[-1]
+        if (zmax/h)%1 > 1e-5: print 'WARNING: zmax is not integer multiple of layer thickness!'
+        tmodel.HArr        = np.ones(int(np.floor(zmax/h)), dtype=float)*h
+        if npinterp:
+            tmodel.DepthArr = np.cumsum(tmodel.HArr)
+            midzArr         = tmodel.DepthArr - h/2.
+            z0Arr           = self.DepthArr-self.HArr/2.
+            if tmodel.modeltype == 'ISOTROPIC':
+                tmodel.VsArr    = np.interp(midzArr, xp = z0Arr, fp = self.VsArr)
+                tmodel.VpArr    = np.interp(midzArr, xp = z0Arr, fp = self.VpArr)
+            elif tmodel.modeltype == 'TRANSVERSE ISOTROPIC':
+                tmodel.VsvArr   = np.interp(midzArr, xp = z0Arr, fp = self.VsvArr)
+                tmodel.VpvArr   = np.interp(midzArr, xp = z0Arr, fp = self.VpvArr)
+                tmodel.VshArr   = np.interp(midzArr, xp = z0Arr, fp = self.VshArr)
+                tmodel.VphArr   = np.interp(midzArr, xp = z0Arr, fp = self.VphArr)
+                tmodel.VpfArr   = np.interp(midzArr, xp = z0Arr, fp = self.VpfArr)
+            tmodel.rhoArr       = np.interp(midzArr, xp = z0Arr, fp = self.rhoArr)
+            tmodel.QpArr        = np.interp(midzArr, xp = z0Arr, fp = self.QpArr)
+            tmodel.QsArr        = np.interp(midzArr, xp = z0Arr, fp = self.QsArr)
+            tmodel.etapArr      = np.interp(midzArr, xp = z0Arr, fp = self.etapArr)
+            tmodel.etasArr      = np.interp(midzArr, xp = z0Arr, fp = self.etasArr)
+            tmodel.frefpArr     = np.interp(midzArr, xp = z0Arr, fp = self.frefpArr)
+            tmodel.frefsArr     = np.interp(midzArr, xp = z0Arr, fp = self.frefsArr)
+        else:
+            if tmodel.modeltype == 'ISOTROPIC':
+                VsArr   = np.array([])
+                VpArr   = np.array([])
+            elif tmodel.modeltype == 'TRANSVERSE ISOTROPIC':
+                VsvArr  = np.array([])
+                VpvArr  = np.array([])
+                VshArr  = np.array([])
+                VphArr  = np.array([])
+                VpfArr  = np.array([])
+            rhoArr      = np.array([])
+            QpArr       = np.array([])
+            QsArr       = np.array([])
+            etapArr     = np.array([])
+            etasArr     = np.array([])
+            frefpArr    = np.array([])
+            frefsArr    = np.array([])
+            zbArr       = np.cumsum(tmodel.HArr)
+            for zb in zbArr:
+                zt      = zb -h
+                indt    = (np.where(zt <= self.DepthArr)[0])[0] 
+                # if indt < 0: indt = 0
+                indb    = (np.where(zb <= self.DepthArr)[0])[0] 
+                # if indb < 0: indb = 0
+                if tmodel.modeltype == 'ISOTROPIC':
+                    VsArr   = np.append(VsArr, (self.VsArr[indt]+self.VsArr[indb])/2.)
+                    VpArr   = np.append(VpArr, (self.VpArr[indt]+self.VpArr[indb])/2.)
+                elif tmodel.modeltype == 'TRANSVERSE ISOTROPIC':
+                    VsvArr  = np.append(VsvArr, (self.VsvArr[indt]+self.VsvArr[indb])/2.)
+                    VpvArr  = np.append(VpvArr, (self.VpvArr[indt]+self.VpvArr[indb])/2.)
+                    VshArr  = np.append(VshArr, (self.VshArr[indt]+self.VshArr[indb])/2.)
+                    VphArr  = np.append(VphArr, (self.VphArr[indt]+self.VphArr[indb])/2.)
+                    VpfArr  = np.append(VpfArr, (self.VpfArr[indt]+self.VpfArr[indb])/2.)
+                rhoArr      = np.append(rhoArr, (self.rhoArr[indt]+self.rhoArr[indb])/2.)
+                QpArr       = np.append(QpArr, (self.QpArr[indt]+self.QpArr[indb])/2.)
+                QsArr       = np.append(QsArr, (self.QsArr[indt]+self.QsArr[indb])/2.)
+                etapArr     = np.append(etapArr, (self.etapArr[indt]+self.etapArr[indb])/2.)
+                etasArr     = np.append(etasArr, (self.etasArr[indt]+self.etasArr[indb])/2.)
+                frefpArr    = np.append(frefpArr, (self.frefpArr[indt]+self.frefpArr[indb])/2.)
+                frefsArr    = np.append(frefsArr, (self.frefsArr[indt]+self.frefsArr[indb])/2.)
+            if tmodel.modeltype == 'ISOTROPIC':
+                tmodel.VsArr    = VsArr
+                tmodel.VpArr    = VpArr
+            elif tmodel.modeltype == 'TRANSVERSE ISOTROPIC':
+                tmodel.VsvArr   = VsvArr
+                tmodel.VpvArr   = VpvArr
+                tmodel.VshArr   = VshArr
+                tmodel.VphArr   = VphArr
+                tmodel.VpfArr   = VpfArr
+            tmodel.rhoArr       = rhoArr
+            tmodel.QpArr        = QpArr
+            tmodel.QsArr        = QsArr
+            tmodel.etapArr      = etapArr
+            tmodel.etasArr      = etasArr
+            tmodel.frefpArr     = frefpArr
+            tmodel.frefsArr     = frefsArr
+            tmodel.DepthArr     = zbArr
+                
+        return tmodel
     
     def check_iso_model(self):
         if self.modeltype != 'ISOTROPIC': raise ValueError('check_iso_model function only works for isotropic model!')
@@ -147,6 +287,27 @@ class Model1d(object):
             self.getmodel(modelname=self.modelname, HArr=HArr[:200], VpArr=VpArr[:200], VsArr=VsArr[:200],
                         rhoArr=rhoArr[:200], QpArr=QpArr[:200], QsArr=QsArr[:200])
         return
+    
+    def check_model(self, verbose=True, trim=False):
+        if self.modeltype == 'TRANSVERSE ISOTROPIC':
+            indexsv     = np.where(self.VsvArr < 0.001)[0]
+            indexsh     = np.where(self.VshArr < 0.001)[0]
+            if indexsv.size != indexsh.size:
+                raise ValueError('Incompatible zero values for Vsv and Vsh of TI model!')
+            if not np.allclose(indexsv, indexsh):
+                raise ValueError('Incompatible zero values for Vsv and Vsh of TI model!')
+            if indexsv.size == 0: return True
+            elif indexsv.size == 1 and indexsv[0] == 0: return True
+            else:
+                if verbose: print 'WARNING: For TI model, only the top Vsv/Vsh can be zero!'
+                if trim:
+                    if verbose: print 'Model will be trimed to discard zero non-top Vsv/Vsh!'
+                    if indexsv[0] == 0:
+                        self.trim(indf=indexsv[1])
+                    else:
+                        self.trim(indf=indexsv[0])
+        return
+    
 
     def addlayer(self, H, vsv, vsh=None, vpv=None, vph=None, vpf=None, rho=None,
                 Qp=310., Qs=150., etap=0.0, etas=0.0, frefp=1.0, frefs=1.0, zmin=9999.):
@@ -185,8 +346,8 @@ class Model1d(object):
             elif self.modeltype == 'TRANSVERSE ISOTROPIC':
                 self.VpvArr = np.append(self.VpvArr, vpv)
                 self.VsvArr = np.append(self.VsvArr, vsv)
-                self.VphArr = np.append(self.VpArr, vph)
-                self.VshArr = np.append(self.VsArr, vsh)
+                self.VphArr = np.append(self.VphArr, vph)
+                self.VshArr = np.append(self.VshArr, vsh)
                 self.VpfArr = np.append(self.VpfArr, vpf)
             self.rhoArr     = np.append(self.rhoArr, rho)
             self.QpArr      = np.append(self.QpArr, Qp)
@@ -392,7 +553,7 @@ class Model1d(object):
         if self.modeltype == 'ISOTROPIC':
             outstr  = '%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n'
         elif self.modeltype == 'TRANSVERSE ISOTROPIC':
-            outstr  = '%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n%f\t%f\t%f\n'
+            outstr  = '%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n\t\t%f\t%f\t%f\n'
         with open(outfname, 'w') as f:
             f.write(self.modelver+'\n')
             f.write(self.modelname+'\n')

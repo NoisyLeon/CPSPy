@@ -1,6 +1,6 @@
 import cpsfile
 
-dispfile=cpsfile.DispFile('./disp_dir/SREGN_p0.2_20.TXT')
+dispfile=cpsfile.DispFile('/home/leon/code/CPSPy/test_modesum/TREGN.TXT')
 # dispfile.write('./disp_dir/ak135_interp_p0.2_20_gr.disp', datatype='group')
 # dispfile=cpsfile.DispFile('./disp_dir/SREGN_p0.2_20.TXT')
 # dispfile.write('./disp_dir/ak135_interp_p0.2_20_ph.disp', datatype='phase')
