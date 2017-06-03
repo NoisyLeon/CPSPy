@@ -6,35 +6,70 @@ import cpsfile
 import subprocess, os
 import copy
 import matplotlib.pyplot as plt
-
+import shutil
 
 class modesumASDF(asdf.AsdfFile):
     """
     ASDF database for mode summation computation
     Note that the ASDF here is Advanced Scientific Data Format, NOT Adaptable Seismic Data Format !
     """
-    def getmodel(self, inmodel=None):
+    def getmodel(self, inmodel=None, modelindex=1, h=2., zmax=400.):
+        """
+        Get velocity model
+        =====================================================================
+        Input parameters:
+        inmodel     - input model
+        modelindex  - model index (1 - ISOTROPIC, 2 - TRANSVERSE ISOTROPIC)
+        h           - layer thickness for re-layerize
+        zmax        - maximum depth fro trim 
+        =====================================================================
+        """
         if isinstance(inmodel, vmodel.Model1d):
             self.model1d    = inmodel
         else:
-            self.model1d    = vmodel.Model1d(modelindex=2)
+            self.model1d    = vmodel.Model1d(modelindex=modelindex)
             self.model1d.ak135()
-            self.model1d.trim(zmax=400.)
-            self.model1d=self.model1d.relayerize(h=2.)
+            self.model1d.trim(zmax=zmax)
+            self.model1d=self.model1d.relayerize(h=h)
         return
     
     def getdfile(self, distfile=None):
+        """
+        Get distance file
+        """
         if isinstance(distfile, cpsfile.DistFile()):
             self.distfile   = distfile
         elif os.path.isfile(distfile):
             self.distfile   = cpsfile.DistFile(distfname=distfile)
         return
     
-    def load(self, infname): self.tree.update((asdf.AsdfFile.open(infname)).tree)
+    def load(self, infname):
+        """
+        Load ASDF file
+        """
+        self.tree.update((asdf.AsdfFile.open(infname)).tree)
     
     
     def run_disp(self, workingdir, outfname=None, nmodes=1, hr=0., hs=0., love=True, rayleigh=True, dt=1., N2=14,
                 freq=[], period=[], freqper='PER', run=True, xmin=1, xmax=100):
+        """
+        Compute dispersion curves
+        =====================================================================
+        Input parameters:
+        workingdir  - working directory
+        outfname    - output file name
+        nmodes      - number of modes (default - 1)
+        hr, hs      - depth of receiver/source
+        love        - compute Love wave dispersion or not
+        rayleigh    - compute Rayleigh wave dispersion or not
+        dt          - time interval
+        N2          - NPTS = 2**N2
+        freq, period- frequency/period list
+        freqper     - output x axis
+        run         - run the code or not
+        xmin, xmax  - output xmin/xmax
+        =====================================================================
+        """
         ###
         # prepare for sprep96/tprep96
         ###
@@ -116,7 +151,6 @@ class modesumASDF(asdf.AsdfFile):
                 elif self.model1d.modeltype == 'TRANSVERSE ISOTROPIC':
                     dispfile = cpsfile.DispFile(workingdir+'/TDISPR.TXT')
                 disptree.update(dispfile.get_tree(intree=disptree))
-            # subprocess.call(command_dpsrf)
             ###
             # Save dispersion curves
             ###
@@ -348,23 +382,135 @@ class modesumASDF(asdf.AsdfFile):
         print outstr
         return outstr
     
-    def plot_eigen(self, wavetype, period, dtype, mode=0, zmax=9999.):
+    def del_dir(self, workingdir=None):
+        try:
+            inparam    = copy.deepcopy(self.tree['inparam'])
+            if workingdir == None: workingdir = inparam['workingdir']
+        except:
+            pass
+        if workingdir == None: raise ValueError('Working directory is not specified!')
+        shutil.rmtrees(workingdir)
+        return
+    
+    def plot_eigen(self, wavetype, period, dtype, style=None, mode=0, zmax=9999., newfig=True, showfig=True):
+        ###
+        # Check input
+        ###
+        wavetype = wavetype.lower(); dtype   = dtype.lower()
+        if wavetype == 'rayleigh': wavetype = 'ray'
+        if wavetype != 'ray' and wavetype != 'love':
+            raise ValueError('wavetype can only be ray or love')
+        if dtype !='ur' and dtype !='tr' and dtype !='uz' and dtype !='tz' and dtype !='ut' and dtype !='tt' and dtype !='dcdh' and dtype !='dcda' \
+            and dtype !='dcdb' and dtype !='dcdr' and dtype !='dcdav' and dtype !='dcdah' and dtype !='dcdbv' and dtype !='dcdbh' and dtype !='dcdn':
+            raise ValueError('dtype should be one of Ur, Tr, Uz, Tz, Ut, Tt, DCDH, DCDA, DCDB, DCDR, DCDAV, DCDAH, DCDBV, DCDBH, DCDN')
+        if self.tree['der']['model']['isotropic']:
+            if dtype == 'dcdav' or dtype == 'dcdah' or dtype == 'dcdbv' or dtype == 'dcdbh' or dtype == 'dcdn':
+                raise ValueError('For isotropic model, dtype should NOT be one of DCDAV, DCDAH, DCDBV, DCDBH, DCDN')
+        else:
+            if dtype == 'dcda' or dtype == 'dcdb':
+                raise ValueError('For TI model, dtype should NOT be one of DCDA, DCDB')
+        ###
+        # Get data for plot
+        ###
         dataArr = self.tree['der']['egn'][wavetype][mode][period][dtype]
         HArr    = self.tree['der']['model']['H']
         zArr    = np.cumsum(HArr) - HArr
         dataArr = dataArr[zArr<zmax]
         zArr    = zArr[zArr<zmax]
-        fig, ax=plt.subplots()
+        ###
+        # Plot data
+        ###
+        if newfig: fig, ax=plt.subplots()
         plt.title('')
-        plt.plot(dataArr, zArr, 'k-', lw=3)
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
-        plt.xlabel(dtype.upper(), fontsize=30)
-        plt.ylabel('Depth (km)', fontsize=30)
-        plt.gca().invert_yaxis()
-        plt.show()
+        if style !=None:
+            plt.plot(dataArr, zArr, style, lw=3, label='mode: '+str(mode)+', T = '+str(period))
+        else:
+            plt.plot(dataArr, zArr, lw=3, label='mode: '+str(mode)+', T = '+str(period))
+        if newfig: 
+            ax.tick_params(axis='x', labelsize=20)
+            ax.tick_params(axis='y', labelsize=20)
+            plt.gca().invert_yaxis()
+            plt.xlabel(dtype.upper(), fontsize=30)
+            plt.ylabel('Depth (km)', fontsize=30)
+        if showfig:
+            plt.legend(numpoints=1, fontsize=20, loc=0)
+            plt.show()
+    
+    def perturb(self, inmodel, wavetype, mode=0, perlst=[10.]):
+        wavetype = wavetype.lower()
+        if wavetype == 'rayleigh': wavetype = 'ray'
+        refmodel    = self.tree['der']['model']
+        if (refmodel['isotropic'] and inmodel.modeltype != 'ISOTROPIC') or ((not refmodel['isotropic']) and inmodel.modeltype == 'ISOTROPIC'):
+            raise ValueError('Model need to be the same type!')
+        if not np.allclose(refmodel['H'], inmodel.HArr):
+            raise ValueError('Model layers are not the same!')
+        HArr    = inmodel.HArr
+        c0Arr   = []
+        cArr    = []
+        if refmodel['isotropic']:
+            dvs = inmodel.VsArr - refmodel['vs']
+            dvp = inmodel.VpArr - refmodel['vp']
+            drho= inmodel.rhoArr - refmodel['rho']
+            for period in perlst:
+                dcda    = self.tree['der']['egn'][wavetype][mode][period]['dcda']
+                dcdb    = self.tree['der']['egn'][wavetype][mode][period]['dcdb']
+                dcdr    = self.tree['der']['egn'][wavetype][mode][period]['dcdr']
+                # # # dc      = np.sum(dcda*dvp*HArr) + np.sum(dcdb*dvs*HArr) + np.sum(dcdr*drho*HArr)
+                if wavetype=='ray':
+                    dc      = np.sum(dcda*dvp) + np.sum(dcdb*dvs) + np.sum(dcdr*drho)
+                else:
+                    dc      = np.sum(dcdb*dvs) + np.sum(dcdr*drho)
+                c0      = self.tree['der']['egn'][wavetype][mode][period]['C']
+                c       = c0+dc
+                c0Arr.append(c0)
+                cArr.append(c)
+        else:
+            rho     = refmodel['rho']
+            vsv0    = np.sqrt(refmodel['L'] / rho)
+            vsh0    = np.sqrt(refmodel['N'] / rho)
+            vpv0    = np.sqrt(refmodel['C'] / rho)
+            vph0    = np.sqrt(refmodel['A'] / rho)
+            eta0    = refmodel['F'] / (refmodel['A'] - 2.* refmodel['L'])
+            eta     = (inmodel.VpfArr**2)/(inmodel.VphArr**2 - 2.*(inmodel.VsvArr**2))
             
+            drho    = inmodel.rhoArr - rho
+            dvsv    = inmodel.VsvArr - vsv0
+            dvsh    = inmodel.VshArr - vsh0
+            dvpv    = inmodel.VpvArr - vpv0
+            dvph    = inmodel.VphArr - vph0
+            deta    = eta - eta0
+            # print 'HERE:', drho.min(), dvsv.max()
+            for period in perlst:
+                dcdav   = self.tree['der']['egn'][wavetype][mode][period]['dcdav']
+                dcdah   = self.tree['der']['egn'][wavetype][mode][period]['dcdah']
+                dcdbv   = self.tree['der']['egn'][wavetype][mode][period]['dcdbv']
+                dcdbh   = self.tree['der']['egn'][wavetype][mode][period]['dcdbh']
+                dcdeta  = self.tree['der']['egn'][wavetype][mode][period]['dcdn']
+                dcdr    = self.tree['der']['egn'][wavetype][mode][period]['dcdr']
+                # # # dc      = np.sum(dcda*dvp*HArr) + np.sum(dcdb*dvs*HArr) + np.sum(dcdr*drho*HArr)
+                if wavetype=='ray':
+                    dc      = np.sum(dcdav*dvpv) + np.sum(dcdah*dvph) + np.sum(dcdbv*dvsv) + np.sum(dcdbh*dvsh) \
+                        + np.sum(dcdr*drho) + np.sum(dcdeta*deta)
+                else:
+                    dc      = np.sum(dcdbv*dvsv) + np.sum(dcdbh*dvsh) + np.sum(dcdr*drho)
+                c0      = self.tree['der']['egn'][wavetype][mode][period]['C']
+                c       = c0+dc
+                c0Arr.append(c0)
+                cArr.append(c)
+            
+        return c0Arr, cArr
+    
+    def compare_disp(self, inmodel, indbase, wavetype, mode=0, perlst=[10.]):
+        wavetype = wavetype.lower()
+        if wavetype == 'rayleigh': wavetype = 'ray'
+        c0Arr, cpreArr = self.perturb(inmodel=inmodel, wavetype=wavetype, mode=mode, perlst=perlst)
+        cArr = []
+        for period in perlst:
+            c       = indbase.tree['der']['egn'][wavetype][mode][period]['C']
+            cArr.append(c)
+        return c0Arr, cpreArr, cArr
         
+                
     
     
         

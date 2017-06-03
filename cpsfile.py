@@ -157,17 +157,21 @@ class DispCurve(object):
         """
         Interpolate dispersion curve, 5 ~ 159 second
         """
-        Tinterp=T0+np.arange(NT)*dT
-        if self.Vph.size == self.period.size:
-            self.Vph=np.interp(Tinterp, self.period, self.Vph)
-        if self.Vgr.size == self.period.size:
-            self.Vgr=np.interp(Tinterp, self.period, self.Vgr)
-        if self.gamma.size == self.period.size:
-            self.gamma=np.interp(Tinterp, self.period, self.gamma)
-        self.period=Tinterp
+        Tinterp     = T0+np.arange(NT)*dT
+        if self.Vph.size == self.period.size: self.Vph      = np.interp(Tinterp, self.period, self.Vph)
+        if self.Vgr.size == self.period.size: self.Vgr      = np.interp(Tinterp, self.period, self.Vgr)
+        if self.gamma.size == self.period.size: self.gamma  = np.interp(Tinterp, self.period, self.gamma)
+        self.period = Tinterp
         return
         
 class DispFile(object):
+    """
+    An object to handle a list of dispersion curves
+    ========================================================================
+    Parameters:
+    DispLst - list of DispCurve object
+    ========================================================================
+    """
     def __init__(self, dispfname=None):
         self.DispLst    = []
         if os.path.isfile(dispfname):
@@ -175,10 +179,11 @@ class DispFile(object):
         return
     
     def get_tree(self, intree=None):
-        if intree==None:
-            outtree = {'ray':{}, 'love': {}}
-        else:
-            outtree = intree
+        """
+        Get tree for ASDF database
+        """
+        if intree==None: outtree = {'ray':{}, 'love': {}}
+        else: outtree = intree
         for disp in self.DispLst:
             if disp.period.size == 0 or disp.Vph.size == 0: continue
             s_tree = {'T': disp.period, 'Vph': disp.Vph}
@@ -249,13 +254,18 @@ class EigenFunc(object):
     An object to handle single period eigenfunction
     ========================================================================
     Parameters:
-    period  - period array
-    Vph     - phase velocity array
-    Vgr     - group velocity array
-    energy  - energy integral array
-    gamma   - anelastic attenuation coefficient array
-    ellip   - Rayleigh wave ellipticity
-    header  - header dictionary (type: RAYLEIGH or LOVE , mode: 0, 1, 2...)
+    -------------------------- eigenfunctions ------------------------------
+    ur, tr, uz, tz  - Rayleigh wave eigenfunctions
+    ut, tt          - Love wave eigenfunctions
+    ------------------------ sensitivity kernels ---------------------------
+    dcdh            - layer thickness
+    dcda, dcdb      - P/S wave velocity
+    dcdr            - density
+    dcdav/dcdah     - PV/PH wave velocity
+    dcdbv/dcdbh     - SV/SH wave velocity
+    dcdn            - eta (eta = F/(A-2L); A, L, F are Love parameters)
+    header          - header dictionary
+                    (type, mode, T, C, U, energy, gamma, zref)
     ========================================================================
     """
     def __init__(self, ur=np.array([]), tr=np.array([]), uz=np.array([]), tz=np.array([]), ut=np.array([]), tt=np.array([]),
@@ -281,6 +291,9 @@ class EigenFunc(object):
         return
     
     def get_hdr(self, instr):
+        """
+        Get header information given a string
+        """
         if instr[3]=='#':
             self.header['type'] = instr[0]
             self.header['mode'] = instr[4]
@@ -305,6 +318,20 @@ class EigenFunc(object):
             
     
 class derFile(object):
+    """
+    An object to handle a list of eigenfunctions
+    ========================================================================
+    Parameters:
+    eigenLst    - list of DispCurve object
+    -------------------------- model parameters ----------------------------
+    HArr        - layer thickness
+    rhoArr      - density
+    VpArr/VsArr - P/S wave velocity
+    QaArr/QbArr - P/S wave quality factor
+    AArr, CArr, FArr
+    LArr, NArr  - Love parameters
+    ========================================================================
+    """
     def __init__(self, derfname=None):
         self.eigenLst   = []
         self.HArr       = np.array([])
@@ -324,6 +351,9 @@ class derFile(object):
         return
     
     def get_tree(self, intree=None, updatemodel=False):
+        """
+        Get tree for ASDF database
+        """
         if intree==None:
             outtree = {'model': {}, 'egn': {'ray':{}, 'love': {} } } 
         else:
@@ -352,11 +382,6 @@ class derFile(object):
                 'dcdah': eigenf.dcdah, 'dcdbv': eigenf.dcdbv, 'dcdbh': eigenf.dcdbh, 'dcdn': eigenf.dcdn, 'zref': eigenf.header['zref'],
                 'C': eigenf.header['C'], 'U': eigenf.header['U'], 'energy': eigenf.header['energy'], 'gamma': eigenf.header['gamma']}
             modetree.update( {eigenf.header['T'] :  s_tree})
-            # if eigenf.header['type'] == 'RAYLEIGH':
-            #     outtree['egn']['ray'].update({disp.header['mode']: s_tree})
-            # 
-            # elif disp.header['type'] == 'LOVE':
-            #     outtree['love'].update({disp.header['mode']: s_tree})
         return outtree
         
     
@@ -394,8 +419,8 @@ class derFile(object):
                     else:
                         self.AArr   = np.append(self.AArr, float(cline[2]))
                         self.CArr   = np.append(self.CArr, float(cline[3]))
-                        self.LArr   = np.append(self.LArr, float(cline[4]))
-                        self.FArr   = np.append(self.FArr, float(cline[5]))
+                        self.FArr   = np.append(self.FArr, float(cline[4]))
+                        self.LArr   = np.append(self.LArr, float(cline[5]))
                         self.NArr   = np.append(self.NArr, float(cline[6]))
                         self.rhoArr = np.append(self.rhoArr, float(cline[7]))
                         self.QaArr  = np.append(self.QaArr, float(cline[8]))

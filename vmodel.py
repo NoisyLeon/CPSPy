@@ -74,7 +74,7 @@ class Model1d(object):
     
     def ak135(self, modelname='AK135 CONTINENTAL MODEL'):
         """
-        ak135 model
+        Load ak135 model
         """
         self.modelname  = modelname
         ak135Arr        = np.loadtxt('ak135_dbase.txt')
@@ -125,6 +125,9 @@ class Model1d(object):
         return
     
     def trim(self, ind0=None, indf=None, zmax=None):
+        """
+        Trime the model with given index ind0, indf and maximum depth zmax
+        """
         add_last_layer  = False
         if zmax != None and indf == None:
             index = (np.where(self.DepthArr> zmax)[0])
@@ -174,11 +177,13 @@ class Model1d(object):
             if self.modeltype == 'TRANSVERSE ISOTROPIC':
                 self.addlayer(H=H, vsv=vsv, vsh=vsh, vpv=vpv, vph=vph, vpf=vpf, rho=rho,
                                     Qp=Qp, Qs=Qs, etap=etap, etas=etas, frefp=frefp, frefs=frefs)
-        if self.HArr.size == 0:
-            print 'WARNING: trimed model has a length of zero!'
+        if self.HArr.size == 0: print 'WARNING: trimed model has a length of zero!'
         return
     
     def relayerize(self, h, npinterp=False):
+        """
+        Re-laterize the model with given depth spacing
+        """
         tmodel      = self.copy()
         zmax        = self.DepthArr[-1]
         if (zmax/h)%1 > 1e-5: print 'WARNING: zmax is not integer multiple of layer thickness!'
@@ -260,7 +265,6 @@ class Model1d(object):
             tmodel.frefpArr     = frefpArr
             tmodel.frefsArr     = frefsArr
             tmodel.DepthArr     = zbArr
-                
         return tmodel
     
     def check_iso_model(self):
@@ -289,6 +293,9 @@ class Model1d(object):
         return
     
     def check_model(self, verbose=True, trim=False):
+        """
+        Check model validity. Currently zero values of vsv/vsh for non-top layer is not allowed!
+        """
         if self.modeltype == 'TRANSVERSE ISOTROPIC':
             indexsv     = np.where(self.VsvArr < 0.001)[0]
             indexsh     = np.where(self.VshArr < 0.001)[0]
