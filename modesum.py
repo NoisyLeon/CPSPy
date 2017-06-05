@@ -13,6 +13,77 @@ class modesumASDF(asdf.AsdfFile):
     ASDF database for mode summation computation
     Note that the ASDF here is Advanced Scientific Data Format, NOT Adaptable Seismic Data Format !
     """
+    
+    def __str__(self):
+        outstr  = '==================== ASDF Database for Mode Summation Computation ====================\n'
+        try:
+            inparam = self.tree['inparam']
+            tempstr = ''
+            tempstr +='---------------------------------- Input Parameters ----------------------------------\n'
+            tempstr +='working directory: ' + inparam['workingdir'] + ' \n'
+            tempstr +='number of modes = ' + str(inparam['nmodes']) + ' \n'
+            tempstr +='Love wave : ' + str(inparam['love']) + ' Rayleigh wave : ' + str(inparam['rayleigh']) + ' \n'
+            if len(inparam['period']) !=0:
+                tempstr +='period = ' +  str(inparam['period']) + ' \n'
+            if len(inparam['freq']) !=0:
+                tempstr +='frequency = ' +  str(inparam['freq']) + ' \n'
+            tempstr +='hr = ' +  str(inparam['hr']) + ' hr = ' +  str(inparam['hs']) + ' \n'
+            # tempstr +='--------------------------------------------------------------------------------------\n'
+            outstr  += tempstr
+        # 
+        # input_parameters    = {'inparam':{'workingdir': workingdir, 'nmodes': nmodes, 'hr': hr, 'hs': hs, 'love': love,
+        #         'rayleigh': rayleigh, 'dt': dt, 'N2': N2, 'freq': freq, 'period': period, 'freqper': freqper, 'xmin': xmin, 'xmax': xmax,
+        #         'redo': False}}
+                # inparam.update({'workingdir': workingdir, 'hr': hr, 'hs': hs, 'love': love, 'rayleigh': rayleigh, 'freqper': freqper, 'xmin': xmin, 'xmax': xmax,
+                # 'redo': False})
+        except:
+            outstr  +='----------------------------- No input parameters in database -------------------------\n'
+        try:
+            disp = self.tree['disp']
+            tempstr = ''
+            tempstr +='----------------------------------- Dispersion Data ----------------------------------\n'
+            tempstr +='Love wave modes: '+ str(disp['love'].keys()) + ' \n'
+            if inparam['love'] and len(disp['love'].keys()) != inparam['nmodes']:
+                tempstr +='In compatible with input parameters\n' 
+            tempstr +='Love wave period : '+ str(np.sort(disp['love'][0]['T'])) + ' \n'
+            if not np.allclose(np.sort(inparam['period']), np.sort(disp['love'][0]['T']) ) : 
+                tempstr +='In compatible with input parameters\n'
+            tempstr +='Rayleigh wave modes : '+ str(disp['ray'].keys())    + ' \n'
+            if inparam['rayleigh'] and len(disp['ray'].keys()) != inparam['nmodes']:
+                tempstr +='In compatible with input parameters\n'
+            tempstr +='Rayleigh wave period : '+ str(np.sort(disp['ray'][0]['T'])) + ' \n'
+            if not np.allclose(np.sort(inparam['period']), np.sort(disp['ray'][0]['T']) ) : 
+                tempstr +='In compatible with input parameters\n'
+            outstr  += tempstr
+        except:
+            outstr  +='----------------------------- No dispersion data in database --------------------------\n'
+        try:
+            der     = self.tree['der']
+            tempstr = ''
+            tempstr +='--------------------------------- Eigenfunction Data ---------------------------------\n'
+            model   = der['model']
+            if model['isotropic']: tempstr +='Isotropic model \n'
+            else: tempstr +='TI model \n'
+            tempstr +='Love wave modes : '+ str(der['egn']['love'].keys()) + ' \n'
+            if inparam['love'] and len(der['egn']['love'].keys()) != inparam['nmodes']:
+                tempstr +='In compatible with input parameters\n'
+            tempstr +='Love wave period : '+ str(np.sort(der['egn']['love'][0].keys())) + ' \n'
+            if not np.allclose(np.sort(inparam['period']), np.sort(der['egn']['love'][0].keys()) ) : 
+                tempstr +='In compatible with input parameters\n'
+            tempstr +='Rayleigh wave modes : '+ str(der['egn']['ray'].keys())    + ' \n'
+            if inparam['rayleigh'] and len(der['egn']['ray'].keys()) != inparam['nmodes']:
+                tempstr +='In compatible with input parameters\n'
+            tempstr +='Rayleigh wave period : '+ str(np.sort(der['egn']['love'][0].keys())) + ' \n'
+            if not np.allclose(np.sort(inparam['period']), np.sort(der['egn']['ray'][0].keys()) ) : 
+                tempstr +='In compatible with input parameters\n'
+            outstr  += tempstr
+        except:
+            outstr  +='----------------------------- No dispersion data in database --------------------------\n'
+        outstr +='======================================================================================\n'
+        return outstr
+    
+    def __repr__(self): return self.__str__()
+    
     def getmodel(self, inmodel=None, modelindex=1, h=2., zmax=400.):
         """
         Get velocity model
@@ -21,7 +92,7 @@ class modesumASDF(asdf.AsdfFile):
         inmodel     - input model
         modelindex  - model index (1 - ISOTROPIC, 2 - TRANSVERSE ISOTROPIC)
         h           - layer thickness for re-layerize
-        zmax        - maximum depth fro trim 
+        zmax        - maximum depth for trim 
         =====================================================================
         """
         if isinstance(inmodel, vmodel.Model1d):
@@ -175,6 +246,24 @@ class modesumASDF(asdf.AsdfFile):
     
     def run_eigen(self, workingdir=None, infname=None, outfname=None, love=True, rayleigh=True, runtype='ALL', noq=True, hr=None, hs=None, freqper='PER',
                 xmin=1, xmax=100, verbose=True, redo=False, run=True):
+        """
+        Compute eigenfunctions
+        ================================================================================
+        Input parameters:
+        workingdir  - working directory 
+        infname     - input file name 
+        outfname    - output file name 
+        love        - compute Love wave dispersion or not
+        rayleigh    - compute Rayleigh wave dispersion or not
+        runtype     - type of run (ALL, SYN, DER, DE, DR, DH, DA, DB)
+        noq         - computation with attenuation or not
+        hr, hs      - depth of receiver/source
+        freqper     - output x axis
+        xmin, xmax  - output xmin/xmax
+        redo        - redo the run with scomb96/tcomb96 or not (not implemented yet)
+        run         - run the code or not
+        ================================================================================
+        """
         if runtype != 'ALL'  and runtype != 'SYN' and runtype != 'DER' and runtype != 'DE' and runtype != 'DR' and runtype != 'DH'\
                 and runtype != 'DA' and runtype != 'DB':
             raise ValueError('Unrecognized runtype (should be ALL, SYN, DER, DE, DR, DH, DA, DB)!')
@@ -383,6 +472,9 @@ class modesumASDF(asdf.AsdfFile):
         return outstr
     
     def del_dir(self, workingdir=None):
+        """
+        Delete working directory
+        """
         try:
             inparam    = copy.deepcopy(self.tree['inparam'])
             if workingdir == None: workingdir = inparam['workingdir']
@@ -393,6 +485,27 @@ class modesumASDF(asdf.AsdfFile):
         return
     
     def plot_eigen(self, wavetype, period, dtype, style=None, mode=0, zmax=9999., newfig=True, showfig=True):
+        """
+        Plot eigenfunction/sensitivity kernels
+        ================================================================================
+        Input parameters:
+        wavetype    - type of wave (Love or Rayleigh)
+        dtype       - data type
+                    ------------------------- eigenfunctions ---------------------------
+                    ur, tr, uz, tz  - Rayleigh wave eigenfunctions
+                    ut, tt          - Love wave eigenfunctions
+                    ----------------------- sensitivity kernels ------------------------
+                    dcdh            - layer thickness
+                    dcda, dcdb      - P/S wave velocity
+                    dcdr            - density
+                    dcdav/dcdah     - PV/PH wave velocity
+                    dcdbv/dcdbh     - SV/SH wave velocity
+                    dcdn            - eta (eta = F/(A-2L); A, L, F are Love parameters)
+        style       - line style for plot 
+        mode        - mode id (0: fundamental mode, 1, 2,... overtones)
+        zmax        - maximum depth for trim
+        ================================================================================
+        """
         ###
         # Check input
         ###
@@ -437,6 +550,27 @@ class modesumASDF(asdf.AsdfFile):
             plt.show()
     
     def perturb(self, inmodel, wavetype, mode=0, perlst=[10.]):
+        """
+        Plot eigenfunction/sensitivity kernels
+        ================================================================================
+        Input parameters:
+        wavetype    - type of wave (Love or Rayleigh)
+        dtype       - data type
+                    ------------------------- eigenfunctions ---------------------------
+                    ur, tr, uz, tz  - Rayleigh wave eigenfunctions
+                    ut, tt          - Love wave eigenfunctions
+                    ----------------------- sensitivity kernels ------------------------
+                    dcdh            - layer thickness
+                    dcda, dcdb      - P/S wave velocity
+                    dcdr            - density
+                    dcdav/dcdah     - PV/PH wave velocity
+                    dcdbv/dcdbh     - SV/SH wave velocity
+                    dcdn            - eta (eta = F/(A-2L); A, L, F are Love parameters)
+        style       - line style for plot 
+        mode        - mode id (0: fundamental mode, 1, 2,... overtones)
+        zmax        - maximum depth for trim
+        ================================================================================
+        """
         wavetype = wavetype.lower()
         if wavetype == 'rayleigh': wavetype = 'ray'
         refmodel    = self.tree['der']['model']
