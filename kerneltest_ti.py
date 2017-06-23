@@ -1,10 +1,10 @@
 import modesum, vmodel
 import matplotlib.pyplot as plt
-
+import numpy as np
 run =1
 per=[10., 15., 20., 25., 30., 35., 40]
 datatype='vph'
-dm=-0.04
+dm=-0.01
 zmax=10.
 wavetype='Love'
 wavetype='Rayleigh'
@@ -36,9 +36,13 @@ c0, cpre, c = dset0.compare_disp(inmodel=model1, indbase=dset1, wavetype=wavetyp
 
 fig, ax=plt.subplots()
 plt.title(wavetype+' '+datatype+' perturb %g percent' %(dm*100)+' at top %g' %zmax +' km', fontsize=40)
-plt.plot(per, c0, 'x--', lw=3, ms=10, label='m0')
-plt.plot(per, cpre, 'o', ms=10, label='m0 kernel predicted')
-plt.plot(per, c, '^', ms=10, label='m1')
+# plt.plot(per, c0, 'x--', lw=3, ms=10, label='m0')
+# plt.plot(per, cpre, 'o', ms=10, label='m0 kernel predicted')
+# plt.plot(per, c, '^', ms=10, label='m1')
+
+plt.plot(per, (np.array(cpre) - np.array(c0))/(np.array(c) - np.array(c0)), 'o', ms=10, label='m0 kernel predicted')
+# plt.plot(per, np.array(c) - np.array(c0), 'x', ms=10, label='m1')
+
 plt.legend(numpoints=1, fontsize=20, loc=0)
 ax.tick_params(axis='x', labelsize=20)
 ax.tick_params(axis='y', labelsize=20)

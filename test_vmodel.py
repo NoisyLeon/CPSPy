@@ -5,7 +5,8 @@ import numpy as np
 model=vmodel.Model1d(modelindex=2)
 # model.read('ak135.mod')
 model.ak135()
-model2=model.relayerize(h=1.)
+model.write_axisem_bm('tt.bm')
+# model2=model.relayerize(h=1.)
 
 # model.read_layer_txt('../SW4Py/cpsin_staircase_1km.txt')
 # model.write('./test.mod')

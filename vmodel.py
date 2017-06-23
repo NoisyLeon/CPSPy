@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
+datadir='/home/leon/code/CPSPy'
+
 
 class Model1d(object):
     """
@@ -26,7 +28,7 @@ class Model1d(object):
     DepthArr        - depth array (bottom depth of each layer)
     ===========================================================================================================
     """
-    def __init__(self, modelver='MODEL.01', modelname='TEST MODEL', modelindex=1, modelunit='KGS', earthindex=1,
+    def __init__(self, modelver='MODEL.01', modelname='TEST MODEL', modelindex=1, modelunit='KGS', earthindex=2,
             boundaryindex=1, Vindex=1, HArr=np.array([]), VsArr=np.array([]), VpArr=np.array([]), rhoArr=np.array([]),
             QpArr=np.array([]), QsArr=np.array([]), etapArr=np.array([]), etasArr=np.array([]), frefpArr=np.array([]),  frefsArr=np.array([])):
         self.modelver   = modelver
@@ -77,7 +79,10 @@ class Model1d(object):
         Load ak135 model
         """
         self.modelname  = modelname
-        ak135Arr        = np.loadtxt('ak135_dbase.txt')
+        if os.path.isfile(datadir+'/ak135_dbase.txt'):
+            ak135Arr        = np.loadtxt(datadir+'/ak135_dbase.txt')
+        else:
+            ak135Arr        = np.loadtxt('ak135_dbase.txt')
         self.HArr       = ak135Arr[:,0]
         if self.modeltype == 'ISOTROPIC':
             self.VpArr      = ak135Arr[:,1]
@@ -552,7 +557,6 @@ class Model1d(object):
             self.DepthArr   = np.cumsum(self.HArr)
         return
 
-
     def write(self, outfname):
         """
         Write profile to the Computer Programs in Seismology model format
@@ -965,71 +969,172 @@ class Model1d(object):
                                 frefp=self.frefpArr[indext], frefs=self.frefsArr[indext]*(1.+dm), zmin=z1)
         return
     
-    def getArr4plot(self, zmin=-9999, zmax=9999, datatype='vs'):
+    def read_axisem_bm(self, infname):
         """
-        Get data array for plotting purpose
+        Read 1D block model from AxiSEM
         """
-        index   = (self.DepthArr<=zmax) * (self.DepthArr>zmin)
-        depthArr= self.DepthArr[index]
-        if (datatype == 'vs' or datatype == 'vp') and self.modeltype != 'ISOTROPIC':
-            raise ValueError('datatype of vp/vs is not accepted when model is not isotropic !')
-        if (datatype == 'vsv' or datatype == 'vpv' or datatype == 'vsh' or datatype == 'vph' or datatype == 'vpf') \
-                and self.modeltype != 'TRANSVERSE ISOTROPIC':
-            raise ValueError('datatype of vpv/vsv/vph/vsh is not accepted when model is not TI !')
-        if datatype=='vp':
-            dataArr=self.VpArr[index]
-        if datatype=='vs':
-            dataArr=self.VsArr[index]
-        if datatype=='vpv':
-            dataArr=self.VpvArr[index]
-        if datatype=='vsv':
-            dataArr=self.VsvArr[index]
-        if datatype=='vph':
-            dataArr=self.VphArr[index]
-        if datatype=='vsh':
-            dataArr=self.VshArr[index]
-        if datatype=='vpf':
-            dataArr=self.VpfArr[index]
-        if datatype=='rho':
-            dataArr=self.rhoArr[index]
-        if datatype=='qp':
-            dataArr=self.QpArr[index]
-        if datatype=='qs':
-            dataArr=self.QsArr[index]
-        if datatype=='etap':
-            dataArr=self.etapArr[index]
-        if datatype=='etas':
-            dataArr=self.etasArr[index]
-        if datatype=='frefp':
-            dataArr=self.frefpArr[index]
-        if datatype=='frefs':
-            dataArr=self.frefsArr[index]
-        dataArr = np.repeat(dataArr, 2)
-        depthArr= np.repeat(depthArr, 2)
-        dataArr = np.append(dataArr, dataArr[-1])
-        zmin    = max(0., zmin)
-        depthArr= np.append(0., depthArr)
-        return dataArr, depthArr
-    
-    def plotvsak135(self, zmin=0, zmax=200., datatype='vs'):
-        ak135model = Model1d()
-        ak135model.ak135()
-        dataArr, depthArr=self.getArr4plot(zmax=zmax, datatype=datatype)
-        dataArr0, depthArr0=ak135model.getArr4plot(zmax=zmax, datatype=datatype)
-        fig, ax= plt.subplots(figsize=(8,12))
-        plt.plot(dataArr0, depthArr0, 'b-', lw=5, label='ak135')
-        plt.plot(dataArr, depthArr, 'k--', lw=5, label='user model' )
-        plt.ylabel('Depth (km)', fontsize=30)
-        plt.xlabel(datatype+' (km/s)', fontsize=30)
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
-        plt.yticks(np.append(0., self.DepthArr))
-        plt.legend(loc='lower left', fontsize=25)
-        plt.ylim((0, zmax))
-        plt.gca().invert_yaxis()
-        plt.show()
+        self.earthtype  = 'SPHERICAL EARTH'
+        with open(infname, 'rb') as f:
+            f.readline()
+            cline           = f.readline()
+            cline           = cline.split()
+            if cline[0] != 'NAME':
+                raise ValueError('Unexpected header: '+cline[0])
+            self.modelname  = cline[1]
+            f.readline()
+            cline           = f.readline()
+            cline           = cline.split()
+            if cline[0] != 'ANISOTROPIC':
+                raise ValueError('Unexpected header: '+cline[0])
+            anisotropic     = cline[1]
+            if anisotropic == 'T':
+                self.modeltype  = 'TRANSVERSE ISOTROPIC'
+                self.modelheader= '\tH(KM)\tVPV(KM/S)\tVSV(KM/S)\tRHO(GM/CC)\tQP\tQS\tETAP\tETAS\tFREFP\tFREFS\n\tVPH(KM/S)\tVSH(KM/S)\tVPF(KM/S)'
+                self.VsvArr     = np.array([])
+                self.VpvArr     = np.array([])
+                self.VshArr     = np.array([])
+                self.VphArr     = np.array([])
+                self.VpfArr     = np.array([])
+            elif anisotropic == 'F':
+                self.modeltype  = 'ISOTROPIC'
+                self.modelheader= '\tH(KM)\tVP(KM/S)\tVS(KM/S)\tRHO(GM/CC)\tQP\tQS\tETAP\tETAS\tFREFP\tFREFS'
+                self.VsArr      = np.array([])
+                self.VpArr      = np.array([])
+            cline           = f.readline()
+            cline           = cline.split()
+            if cline[0] != 'UNITS':
+                raise ValueError('Unexpected header: '+cline[0])
+            if cline[1] == 'm': unit = 1000.
+            elif cline[1] == 'km': unit = 1.
+            cline           = f.readline()
+            cline           = cline.split()
+            if cline[0] != 'COLUMNS':
+                raise ValueError('Unexpected header: '+cline[0])
+            ind = {}
+            i=0
+            for hdrstr in cline[1:]:
+                ind[hdrstr] = i
+                i   += 1
+            ###
+            # Read model parameters
+            ###
+            z0 = 0.
+            for line in f.readlines():
+                cline   = line.split()
+                if cline[0] == '#': continue
+                r   = float(cline[ ind['radius'] ])/unit
+                z   = 6371. - r
+                H   = z - z0
+                # # # print ' '.join(cline), H
+                if H == 0.:
+                    vpvt = float(cline[ ind['vpv'] ])/unit
+                    vsvt = float(cline[ ind['vsv'] ])/unit
+                    rhot = float(cline[ ind['rho'] ])/unit
+                    qkat = float(cline[ ind['qka'] ])
+                    qmut = float(cline[ ind['qmu'] ])
+                    if qmut != 0.:
+                        qpt  = qmut/ ( 4.*(vsvt/vpvt)**2/3. + (1.- 4.*(vsvt/vpvt)**2/3.) * qmut/qkat )
+                    else:
+                        qpt  = 57822.
+                    if anisotropic == 'T':
+                        vpht = float(cline[ ind['vph'] ])/unit
+                        vsht = float(cline[ ind['vsh'] ])/unit
+                        etat = float(cline[ ind['eta'] ])/unit
+                        vpft = np.sqrt(etat*(vpht**2 - vsvt**2))
+                    # # # print vsvt
+                    continue
+                vpvb= float(cline[ ind['vpv'] ])/unit
+                vsvb= float(cline[ ind['vsv'] ])/unit
+                rhob= float(cline[ ind['rho'] ])/unit
+                qkab= float(cline[ ind['qka'] ])
+                qmub= float(cline[ ind['qmu'] ])
+                if qmub != 0.:
+                    qpb  = qmub/ ( 4.*(vsvb/vpvb)**2/3. + (1.- 4.*(vsvb/vpvb)**2/3.) * qmub/qkab )
+                else:
+                    qpb  = 57822.
+                if anisotropic == 'T':
+                    vphb = float(cline[ ind['vph'] ])/unit
+                    vshb = float(cline[ ind['vsh'] ])/unit
+                    etab = float(cline[ ind['eta'] ])/unit
+                    vpfb = np.sqrt(etab*(vphb**2 - vsvb**2))
+                self.HArr   = np.append(self.HArr, H)
+                self.rhoArr = np.append(self.rhoArr, (rhot+rhob)/2.)
+                self.QpArr  = np.append(self.QpArr, (qpt+qpb)/2.)
+                self.QsArr  = np.append(self.QsArr, (qmut+qmub)/2.)
+                if anisotropic == 'T':
+                    self.VsvArr = np.append(self.VsvArr, (vsvt+vsvb)/2.)
+                    self.VshArr = np.append(self.VshArr, (vsht+vshb)/2.)
+                    self.VpvArr = np.append(self.VpvArr, (vpvt+vpvb)/2.)
+                    self.VphArr = np.append(self.VphArr, (vpht+vphb)/2.)
+                    self.VpfArr = np.append(self.VpfArr, (vpft+vpfb)/2.)
+                else:
+                    self.VsArr = np.append(self.VsArr, (vsvt+vsvb)/2.)
+                    self.VpArr = np.append(self.VpArr, (vpvt+vpvb)/2.)
+                # # # print vsvt, vsvb, (vsvt+vsvb)/2.
+                z0      = z
+                vpvt    = vpvb
+                vsvt    = vsvb
+                rhot    = rhob
+                qkat    = qkab
+                qmut    = qmub
+                qpt     = qpb
+                if anisotropic == 'T':
+                    vpht = vphb
+                    vsht = vshb
+                    etat = etab
+                    vpft = vpfb
+        self.etapArr    = np.zeros(self.HArr.size)
+        self.etasArr    = np.zeros(self.HArr.size)
+        self.frefpArr   = np.ones(self.HArr.size)
+        self.frefsArr   = np.ones(self.HArr.size)
+        self.DepthArr   = np.cumsum(self.HArr)
         return
     
+    def write_axisem_bm(self, outfname, noq=True, modelname='model_cps', comment='Model from CPS', unit=1000.):
+        with open(outfname, 'wb') as f:
+            ###
+            # header
+            ###
+            f.writelines('# %s\n' %comment)
+            f.writelines('NAME\t%s\n' %modelname)
+            if noq: f.writelines('ANELASTIC\tF\n')
+            else: f.writelines('ANELASTIC\tT\n')
+            if self.modeltype == 'ISOTROPIC': f.writelines('ANISOTROPIC\tF\n')
+            else: f.writelines('ANISOTROPIC\tT\n')
+            if unit == 1000.: f.writelines('UNITS\tm\n')
+            elif unit == 1.: f.writelines('UNITS\tkm\n')
+            else: raise ValueError('Unexpected units!')
+            if self.modeltype == 'ISOTROPIC':
+                f.writelines('COLUMNS\tradius\trho\tvpv\tvsv\tqka\tqmu\n')
+            else:
+                f.writelines('COLUMNS\tradius\trho\tvpv\tvsv\tqka\tqmu\tvph\tvsh\teta\n')
+            ###
+            # model parameters
+            ###
+            N   = self.HArr.size
+            topArr  = self.DepthArr - self.HArr
+            for i in xrange(N):
+                z0  = topArr[i]; z1 = self.DepthArr[i]
+                r0  = (6371.-z0)*unit; r1 = (6371.-z1)*unit
+                rho = self.rhoArr[i]*unit
+                qka = self.QpArr[i]
+                qmu = self.QsArr[i]
+                if self.modeltype == 'ISOTROPIC':
+                    vpv = self.VpArr[i]*unit
+                    vsv = self.VsArr[i]*unit
+                    f.writelines('%g\t%g\t%g\t%g\t%g\t%g\n' %(r0, rho, vpv, vsv, qka, qmu))
+                    f.writelines('%g\t%g\t%g\t%g\t%g\t%g\n' %(r1, rho, vpv, vsv, qka, qmu))
+                else:
+                    vpv = self.VpvArr[i]*unit
+                    vsv = self.VsvArr[i]*unit
+                    vph = self.VphArr[i]*unit
+                    vsh = self.VshArr[i]*unit
+                    vpf = self.VpfArr[i]*unit
+                    eta = vpf**2/(vph**2 - 2.*vsv**2)
+                    f.writelines('\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n' %(r0, rho, vpv, vsv, qka, qmu, vph, vsh, eta))
+                    f.writelines('\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n' %(r1, rho, vpv, vsv, qka, qmu, vph, vsh, eta))
+        
+                    
 
     
 class vprofile(object):

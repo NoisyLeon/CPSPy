@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+"""
+
+"""
 import numpy as np
 import pyasdf 
 import matplotlib.pyplot as plt
@@ -17,7 +20,6 @@ import scipy.signal
 import numexpr as npr
 from functools import partial
 import multiprocessing
-import math
 import time
 import shutil
 from subprocess import call
@@ -581,33 +583,43 @@ class InputFtanParam(object): ###
 
 class cpsASDF(pyasdf.ASDFDataSet):
     
-    def Readsac(self, stafile, datadir, comptype=['ZVF'], verbose=False, evlo=0., evla=0., evdp=0.):
+    def Readsac(self, datadir, stalst=None, distfile=None, comptype=['ZVF'], verbose=False, evlo=0., evla=0., evdp=0.):
         """ Read SAC files into ASDF dataset according to given station list
-        -----------------------------------------------------------------------------------------------------
+        ===========================================================================================================
         Input Parameters:
-        stafile       - station list file name
+        distfile    - distance file name
+        stalst      - station list or station file name
         datadir     - data directory
-        comptype  - component type (default=ZVF)
+        comptype    - component type (default=ZVF)
         Output:
         self.waveforms
-        -----------------------------------------------------------------------------------------------------
+        ===========================================================================================================
         """
+        if stalst == None and distfile == None:
+            raise ValueError('At least one of stafile/distfile need to be specified!')
         print 'Start reading sac files!'
-        SLst=stations.StaLst()
-        SLst.ReadStaList(stafile=stafile)
-        StaInv=SLst.GetInventory() 
+        if stalst == None:
+            SLst    = stations.StaLst()
+            SLst.read_distfile(distfname=distfile)
+        else:
+            if isinstance(stalst, stations.StaLst):
+                SLst    = stalst
+            else:
+                SLst    = stations.StaLst()
+                SLst.read(stafile=stafile)
+        StaInv  = SLst.GetInventory() 
         self.add_stationxml(StaInv)
-        chandict={'ZDD': '01', 'RDD': '02', 'ZDS': '03', 'RDS': '04', 'TDS': '05', 'ZSS': '06', 'RSS': '07', 'TSS': '08', 'ZEX': '09', 'REX': '10', 'ZVF': '11', 'RVF': '12',
-                      'ZHF': '13', 'RHF': '14', 'THF': '15'}
+        chandict= {'ZDD': '01', 'RDD': '02', 'ZDS': '03', 'RDS': '04', 'TDS': '05', 'ZSS': '06', 'RSS': '07', 'TSS': '08',
+                    'ZEX': '09', 'REX': '10', 'ZVF': '11', 'RVF': '12', 'ZHF': '13', 'RHF': '14', 'THF': '15'}
         for sta in SLst.stations:
-            if verbose == True:
+            if verbose:
                 print 'Reading sac file:', sta.network,sta.stacode
-            station_id_aux=sta.network+sta.stacode
+            station_id_aux  = sta.network+sta.stacode
             for comp in comptype:
-                sacfname = datadir+'/'+sta.stacode+chandict[comp]+comp+'.sac'
-                tr=obspy.read(sacfname)[0]
-                tr.stats.network=sta.network
-                tr.stats.station=sta.stacode
+                sacfname        = datadir+'/'+sta.stacode+chandict[comp]+comp+'.sac'
+                tr              = obspy.read(sacfname)[0]
+                tr.stats.network= sta.network
+                tr.stats.station= sta.stacode
                 self.add_waveforms(tr, tag='cps_raw')
                 self.add_auxiliary_data(data=np.array([sta.distance]), data_type='DIST', path=station_id_aux, parameters={})
         self.AddEvent(lon=evlo, lat=evla, z=evdp)
@@ -616,38 +628,39 @@ class cpsASDF(pyasdf.ASDFDataSet):
     
     def AddEvent(self, lon, lat, z):
         """ Add event information to ASDF dataset
-        -----------------------------------------------------------------------------------------------------
+        ===========================================================================================================
         Input Parameters:
-        x,y,z       - event location, unit is km
+        lon, lat, z       - event location, unit is km
         Output:
         self.events
-        -----------------------------------------------------------------------------------------------------
+        ===========================================================================================================
         """
         print 'Attention: Event Location unit is km!'
-        origin=obspy.core.event.origin.Origin(longitude=lon, latitude=lat, depth=z)
-        event=obspy.core.event.event.Event(origins=[origin])
-        catalog=obspy.core.event.catalog.Catalog(events=[event])
+        origin  = obspy.core.event.origin.Origin(longitude=lon, latitude=lat, depth=z)
+        event   = obspy.core.event.event.Event(origins=[origin])
+        catalog = obspy.core.event.catalog.Catalog(events=[event])
         self.add_quakeml(catalog)
         return
     
     def aftan(self, compindex=0, tb=0, outdir=None, inftan=InputFtanParam(), phvelname ='./ak135.disp', basic1=True, basic2=False,
             pmf1=False, pmf2=False, verbose=True):
         """ aftan analysis for ASDF Dataset
-        -----------------------------------------------------------------------------------------------------
+        ===========================================================================================================
         Input Parameters:
-        compindex  - component index in waveforms path (default = 0)
-        tb                 -  begin time (default = 0)
-        outdir          - directory for output disp txt files (default = None, no txt output)
-        inftan          - input aftan parameters
-        phvelname  - predicted phase velocity file (default = './ak135.disp' )
-        basic1          - save basic aftan results or not
-        basic2          - save basic aftan results(with jump correction) or not
-        pmf1            - save pmf aftan results or not
-        pmf2            - save pmf aftan results(with jump correction) or not
+        compindex   - component index in waveforms path (default = 0)
+        tb          -  begin time (default = 0)
+        outdir      - directory for output disp txt files (default = None, no txt output)
+        inftan      - input aftan parameters
+        phvelname   - predicted phase velocity file (default = './ak135.disp' )
+        basic1      - save basic aftan results or not
+        basic2      - save basic aftan results(with jump correction) or not
+        pmf1        - save pmf aftan results or not
+        pmf2        - save pmf aftan results(with jump correction) or not
         
         Output:
-        self.auxiliary_data.DISPbasic1, self.auxiliary_data.DISPbasic2, self.auxiliary_data.DISPpmf1, self.auxiliary_data.DISPpmf2
-        -----------------------------------------------------------------------------------------------------
+        self.auxiliary_data.DISPbasic1, self.auxiliary_data.DISPbasic2,
+            self.auxiliary_data.DISPpmf1, self.auxiliary_data.DISPpmf2
+        ===========================================================================================================
         """
         print 'Start aftan analysis!'
         try:

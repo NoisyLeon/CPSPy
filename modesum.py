@@ -30,12 +30,6 @@ class modesumASDF(asdf.AsdfFile):
             tempstr +='hr = ' +  str(inparam['hr']) + ' hr = ' +  str(inparam['hs']) + ' \n'
             # tempstr +='--------------------------------------------------------------------------------------\n'
             outstr  += tempstr
-        # 
-        # input_parameters    = {'inparam':{'workingdir': workingdir, 'nmodes': nmodes, 'hr': hr, 'hs': hs, 'love': love,
-        #         'rayleigh': rayleigh, 'dt': dt, 'N2': N2, 'freq': freq, 'period': period, 'freqper': freqper, 'xmin': xmin, 'xmax': xmax,
-        #         'redo': False}}
-                # inparam.update({'workingdir': workingdir, 'hr': hr, 'hs': hs, 'love': love, 'rayleigh': rayleigh, 'freqper': freqper, 'xmin': xmin, 'xmax': xmax,
-                # 'redo': False})
         except:
             outstr  +='----------------------------- No input parameters in database -------------------------\n'
         try:
@@ -104,14 +98,18 @@ class modesumASDF(asdf.AsdfFile):
             self.model1d=self.model1d.relayerize(h=h)
         return
     
-    def getdfile(self, distfile=None):
+    def getdfile(self, distfile=None, dist0=500, dD=100, Nd=20):
         """
         Get distance file
         """
-        if isinstance(distfile, cpsfile.DistFile()):
-            self.distfile   = distfile
-        elif os.path.isfile(distfile):
-            self.distfile   = cpsfile.DistFile(distfname=distfile)
+        if distfile==None:
+            self.distfile = cpsfile.DistFile()
+            self.distfile.addEqualDist(dist0=dist0, dD=dD, Nd=Nd)
+        else:
+            if isinstance(distfile, cpsfile.DistFile):
+                self.distfile   = distfile
+            elif os.path.isfile(distfile):
+                self.distfile   = cpsfile.DistFile(distfname=distfile)
         return
     
     def load(self, infname):
@@ -201,6 +199,7 @@ class modesumASDF(asdf.AsdfFile):
         self.tree.update(input_parameters)
         disptree = {'ray':{}, 'love': {}}
         if run:
+            cdir    = os.getcwd()
             os.chdir(workingdir)
             subprocess.call(command_prep)
             subprocess.call(command_disp)
@@ -227,6 +226,7 @@ class modesumASDF(asdf.AsdfFile):
             ###
             self.tree.update({'disp': disptree})
             if outfname!=None: self.write_to(outfname)
+            os.chdir(cdir)
             return True
         else:
             if love:
@@ -344,7 +344,7 @@ class modesumASDF(asdf.AsdfFile):
         ###############
         # convert dispersion data to TXT 
         ###############
-        if runtype == 'ALL' or runtype == 'SYN':
+        if runtype != 'SYN':
             if self.model1d.modeltype == 'ISOTROPIC': command_dpegn = ['sdpegn96', '-TXT', '-C', '-U', '-G']
             elif self.model1d.modeltype == 'TRANSVERSE ISOTROPIC': command_dpegn = ['tdpegn96', '-TXT', '-C', '-U', '-G']
             command_dpegn.append('-'+freqper)
@@ -383,6 +383,7 @@ class modesumASDF(asdf.AsdfFile):
             disptree    = {'ray':{}, 'love': {}}
         dertree={'model': {}, 'egn': {'ray':{}, 'love': {} } } 
         if run:
+            cdir    = os.getcwd()
             os.chdir(workingdir)
             if runtype == 'ALL':
                 subprocess.call(command_love)
@@ -440,6 +441,7 @@ class modesumASDF(asdf.AsdfFile):
             ###
             self.tree.update({'inparam': inparam})
             if outfname!=None: self.write_to(outfname)
+            os.chdir(cdir)
             return True
         if runtype == 'ALL':
             command_love.append('-DER')
@@ -471,6 +473,118 @@ class modesumASDF(asdf.AsdfFile):
         print outstr
         return outstr
     
+    def run_pulse(self, distfile=None, dist0=500, dD=100, Nd=10, workingdir=None, infname=None, outfname=None, stftype='-i',
+            duraparam=2, sourcetype='-ALL', outtype='-D', fund=True, verbose=False, run=True):
+        """
+        Compute synthetics seismograms given eigenfunction data
+        ================================================================================
+        Input parameters:
+        distfile    - distance file, object or file path
+        dist0       - distance for origin point
+        dD          - distance interval
+        Nd          - number of distance point 
+        workingdir  - working directory 
+        infname     - input file name 
+        outfname    - output file name 
+        stftype     - type of source time function (-i, -o, -t, -p)
+        duraparam   - duration controle parameters for source pulse
+        sourcetype  - type of source (-EX, -EQ, -ALL)
+        outtype     - output type (-D, -V, -A), displacement, velocity, acceleration
+        fund        - only include fundamental mode or not
+        run         - run the code or not
+        ================================================================================
+        """
+        if infname != None: self.load(infname=infname)
+        inparam    = copy.deepcopy(self.tree['inparam'])
+        if workingdir == None: workingdir = inparam['workingdir']
+        if outtype!='-D' and outtype!='-V' and outtype!='-A':
+            raise ValueError('Unrecognized type of output seismogram '+ outtype +' should be -D, -V or -A')
+        if sourcetype!='-EX' and sourcetype!='-EQ' and sourcetype!='-ALL':
+            raise ValueError('Unrecognized type of souce '+ sourcetype +' should be -EX, -EQ or -ALL')
+        if stftype!='-i' and stftype!='-t' and stftype!='-p' and stftype!='-o':
+            raise ValueError('Unrecognized type of souce '+ stftype +' should be -i, -t, -p or -o')
+        ###
+        # distance file
+        ###
+        self.getdfile(distfile=distfile, dist0=dist0, dD=dD, Nd=Nd)
+        try: self.distfile
+        except: raise ValueError('Distance file not specified!')
+        self.distfile.write(distfname=workingdir+'/dfile')
+        ###
+        #
+        ###
+        if self.model1d.modeltype == 'ISOTROPIC':
+            command = ['spulse96']
+        elif self.model1d.modeltype == 'TRANSVERSE ISOTROPIC':
+            command = ['tpulse96']
+        command.append('-d'); command.append('dfile')
+        command.append(sourcetype); command.append(outtype)
+        if verbose: command.append('-v')
+        command.append(stftype)
+        if stftype == '-t' or stftype == '-p':
+            command.append('-l'); command.append('%d' %duraparam)
+        if fund==True: command.append('-FUND')
+        ###
+        # Update input parameters
+        ###
+        inparam.update({'workingdir': workingdir, 'stf': stftype, 'sourcetype': sourcetype, 'outtype': outtype, 'fund': fund})
+        self.tree.update({'inparam': inparam})
+        command2sac=['f96tosac', '-B', 'tempf96']
+        if outfname!=None: self.write_to(outfname)
+        if run:
+            cdir    = os.getcwd()
+            os.chdir(workingdir)
+            with open('tempf96', 'w') as f:
+                subprocess.call(command, stdout=f)
+            subprocess.call(command2sac)
+            os.remove(workingdir+'/tempf96')
+            os.chdir(cdir)
+        else:
+            command.append('>'); command.append('tempf96')
+            command.append('\n'+command2sac[0])
+            command+=command2sac[1:]
+            outstr = ' '.join(command)
+            print outstr
+            return outstr
+    
+    def write_disp(self, outfname, wavetype='ray', mode=0, dtype='ph'):
+        """
+        Write dispersion curve to txt file
+        ================================================================================
+        Input parameters:
+        outfname    - output file name 
+        wavetype    - type of wave (Love or Rayleigh)
+        mode        - mode id (0: fundamental mode, 1, 2,... overtones)
+        dtype       - data type
+        ================================================================================
+        """
+        wavetype = wavetype.lower()
+        if wavetype == 'rayleigh': wavetype = 'ray'
+        if wavetype != 'ray' and wavetype != 'love':
+            raise ValueError('wavetype can only be ray or love')
+        try:
+            disptree= self.tree['disp'][wavetype][mode]
+            if dtype == 'ph' or dtype == 'C': dtype = 'ph'
+            elif dtype == 'gr' or dtype == 'U': dtype = 'gr'
+            else: raise ValueError('Unrecognized data type!')
+            vel     = disptree['V'+dtype]
+            periods = disptree['T']
+        except:
+            egntree = self.tree['der']['egn'][wavetype][mode]
+            periods = np.sort(egntree.keys())
+            vel     = []
+            if dtype == 'ph' or dtype == 'C': dtype = 'C'
+            elif dtype == 'gr' or dtype == 'U': dtype = 'U'
+            else: raise ValueError('Unrecognized data type!')
+            for per in periods:
+                vel.append( egntree[per][dtype] )
+            vel = np.asarray(vel)
+        outArr  = np.append(periods, vel)
+        outArr  = (outArr.reshape(2, periods.size)).T
+        np.savetxt(outfname, outArr, fmt='%g')
+        return
+        
+    
     def del_dir(self, workingdir=None):
         """
         Delete working directory
@@ -481,7 +595,7 @@ class modesumASDF(asdf.AsdfFile):
         except:
             pass
         if workingdir == None: raise ValueError('Working directory is not specified!')
-        shutil.rmtrees(workingdir)
+        shutil.rmtree(workingdir)
         return
     
     def plot_eigen(self, wavetype, period, dtype, style=None, mode=0, zmax=9999., newfig=True, showfig=True):
@@ -509,12 +623,13 @@ class modesumASDF(asdf.AsdfFile):
         ###
         # Check input
         ###
-        wavetype = wavetype.lower(); dtype   = dtype.lower()
+        wavetype = wavetype.lower(); #dtype   = dtype.lower()
         if wavetype == 'rayleigh': wavetype = 'ray'
         if wavetype != 'ray' and wavetype != 'love':
             raise ValueError('wavetype can only be ray or love')
         if dtype !='ur' and dtype !='tr' and dtype !='uz' and dtype !='tz' and dtype !='ut' and dtype !='tt' and dtype !='dcdh' and dtype !='dcda' \
-            and dtype !='dcdb' and dtype !='dcdr' and dtype !='dcdav' and dtype !='dcdah' and dtype !='dcdbv' and dtype !='dcdbh' and dtype !='dcdn':
+            and dtype !='dcdb' and dtype !='dcdr' and dtype !='dcdav' and dtype !='dcdah' and dtype !='dcdbv' and dtype !='dcdbh' and dtype !='dcdn'\
+            and dtype !='dcdA' and dtype !='dcdC' and dtype !='dcdL' and dtype !='dcdF' and dtype !='dcdN':
             raise ValueError('dtype should be one of Ur, Tr, Uz, Tz, Ut, Tt, DCDH, DCDA, DCDB, DCDR, DCDAV, DCDAH, DCDBV, DCDBH, DCDN')
         if self.tree['der']['model']['isotropic']:
             if dtype == 'dcdav' or dtype == 'dcdah' or dtype == 'dcdbv' or dtype == 'dcdbh' or dtype == 'dcdn':
@@ -548,27 +663,157 @@ class modesumASDF(asdf.AsdfFile):
         if showfig:
             plt.legend(numpoints=1, fontsize=20, loc=0)
             plt.show()
+            
+    
+    def compute_love_kernel(self, outfname=None, modelst=None, perlst=None):
+        refmodel    = self.tree['der']['model']
+        if refmodel['isotropic']:  raise ValueError('Sensitivity kernels for Love parameters can not be computed for isotropic model')
+        if modelst == None: modelst = self.tree['der']['egn']['ray'].keys()
+        if perlst == None: perlst = self.tree['der']['egn']['ray'][modelst[0]].keys()
+        ###
+        # model parameters
+        ###
+        A       = refmodel['A']
+        L       = refmodel['L']
+        C       = refmodel['C']
+        F       = refmodel['F']
+        N       = refmodel['N']
+        eta     = F/(A-2.*L)
+        rho     = refmodel['rho']
+        for mode in modelst:
+            for period in perlst:
+                VphR    = self.tree['der']['egn']['ray'][mode][period]['C']
+                VgrR    = self.tree['der']['egn']['ray'][mode][period]['U']
+                kR       = 2.*np.pi/VphR/period
+                VphL    = self.tree['der']['egn']['love'][mode][period]['C']
+                VgrL    = self.tree['der']['egn']['love'][mode][period]['U']
+                kL       = 2.*np.pi/VphL/period
+                # eigenfuntions
+                Ur      = self.tree['der']['egn']['ray'][mode][period]['ur']
+                Uz      = self.tree['der']['egn']['ray'][mode][period]['uz']
+                Tr      = self.tree['der']['egn']['ray'][mode][period]['tr']
+                Tz      = self.tree['der']['egn']['ray'][mode][period]['tz']
+                Ut      = self.tree['der']['egn']['love'][mode][period]['ut']
+                Tt      = self.tree['der']['egn']['love'][mode][period]['tt']
+                # derivative of eigenfunctions, $5.8 of R.Herrmann
+                durdz   = 1./L*Tr - kR*Uz
+                duzdz   = kR*F/C*Ur + Tz/C
+                dutdz   = Tt/L
+                # Rayleigh wave sensitivity kernel
+                dcRdav  = self.tree['der']['egn']['ray'][mode][period]['dcdav']
+                dcRdah  = self.tree['der']['egn']['ray'][mode][period]['dcdah']
+                dcRdbv  = self.tree['der']['egn']['ray'][mode][period]['dcdbv']
+                dcRdbh  = self.tree['der']['egn']['ray'][mode][period]['dcdbh']
+                dcRdeta = self.tree['der']['egn']['ray'][mode][period]['dcdn']
+                dcRdr   = self.tree['der']['egn']['ray'][mode][period]['dcdr']
+                # Love wave sensitivity kernel
+                dcLdbv  = self.tree['der']['egn']['love'][mode][period]['dcdbv']
+                dcLdbh  = self.tree['der']['egn']['love'][mode][period]['dcdbh']
+                dcLdr   = self.tree['der']['egn']['love'][mode][period]['dcdr']
+                # get trees for update
+                rayTree = self.tree['der']['egn']['ray'][mode][period]
+                loveTree= self.tree['der']['egn']['love'][mode][period]
+                # compute partial derivatives using chain rule
+                # Rayleigh wave
+                dcRdA   = -dcRdeta * F/((A-2.*L)**2)  + dcRdah *0.5 /np.sqrt(rho*A)
+                dcRdC   = dcRdav *0.5 /np.sqrt(rho*C)
+                dcRdF   = dcRdeta /(A-2.*L)
+                dcRdL   = dcRdeta * 2.*F/((A-2.*L)**2)  + dcRdbv *0.5 /np.sqrt(rho*L)
+                dcRdN   = dcRdbh *0.5 /np.sqrt(rho*N)
+                # Love wave
+                dcLdA   = np.array([])
+                dcLdC   = np.array([])
+                dcLdF   = np.array([])
+                dcLdL   = dcLdbv *0.5 /np.sqrt(rho*L)
+                dcLdN   = dcLdbh *0.5 /np.sqrt(rho*N)
+                # Update trees
+                addRtree= {'dcdA': dcRdA, 'dcdC': dcRdC, 'dcdF': dcRdF, 'dcdL': dcRdL, 'dcdN': dcRdN}
+                addLtree= {'dcdA': dcLdA, 'dcdC': dcLdC, 'dcdF': dcLdF, 'dcdL': dcLdL, 'dcdN': dcLdN}
+                rayTree.update(addRtree)
+                loveTree.update(addLtree)
+        if outfname!=None: self.write_to(outfname)
+        return
+    
+    def compute_love_kernel_montagner(self, outfname=None, modelst=None, perlst=None):
+        refmodel    = self.tree['der']['model']
+        if refmodel['isotropic']:  raise ValueError('Sensitivity kernels for Love parameters can not be computed for isotropic model')
+        if modelst == None: modelst = self.tree['der']['egn']['ray'].keys()
+        if perlst == None: perlst = self.tree['der']['egn']['ray'][modelst[0]].keys()
+        ###
+        # model parameters
+        ###
+        A       = refmodel['A']
+        L       = refmodel['L']
+        C       = refmodel['C']
+        F       = refmodel['F']
+        N       = refmodel['N']
+        eta     = F/(A-2.*L)
+        rho     = refmodel['rho']
+        for mode in modelst:
+            for period in perlst:
+                VphR    = self.tree['der']['egn']['ray'][mode][period]['C']
+                VgrR    = self.tree['der']['egn']['ray'][mode][period]['U']
+                kR       = 2.*np.pi/VphR/period
+                VphL    = self.tree['der']['egn']['love'][mode][period]['C']
+                VgrL    = self.tree['der']['egn']['love'][mode][period]['U']
+                kL       = 2.*np.pi/VphL/period
+                # eigenfuntions
+                Ur      = self.tree['der']['egn']['ray'][mode][period]['ur']
+                Uz      = self.tree['der']['egn']['ray'][mode][period]['uz']
+                Tr      = self.tree['der']['egn']['ray'][mode][period]['tr']
+                Tz      = self.tree['der']['egn']['ray'][mode][period]['tz']
+                Ut      = self.tree['der']['egn']['love'][mode][period]['ut']
+                Tt      = self.tree['der']['egn']['love'][mode][period]['tt']
+                # derivative of eigenfunctions, $5.8 of R.Herrmann
+                durdz   = 1./L*Tr - kR*Uz
+                duzdz   = kR*F/C*Ur + Tz/C
+                dutdz   = Tt/L
+                R0      = np.sum(rho*(Ur**2+Uz**2))
+                L0      = np.sum(rho*(Ut**2))
+                # Rayleigh wave sensitivity kernel
+                dcRdav  = self.tree['der']['egn']['ray'][mode][period]['dcdav']
+                dcRdah  = self.tree['der']['egn']['ray'][mode][period]['dcdah']
+                dcRdbv  = self.tree['der']['egn']['ray'][mode][period]['dcdbv']
+                dcRdbh  = self.tree['der']['egn']['ray'][mode][period]['dcdbh']
+                dcRdeta = self.tree['der']['egn']['ray'][mode][period]['dcdn']
+                dcRdr   = self.tree['der']['egn']['ray'][mode][period]['dcdr']
+                # Love wave sensitivity kernel
+                dcLdbv  = self.tree['der']['egn']['love'][mode][period]['dcdbv']
+                dcLdbh  = self.tree['der']['egn']['love'][mode][period]['dcdbh']
+                dcLdr   = self.tree['der']['egn']['love'][mode][period]['dcdr']
+                # get trees for update
+                rayTree = self.tree['der']['egn']['ray'][mode][period]
+                loveTree= self.tree['der']['egn']['love'][mode][period]
+                # compute partial derivatives using chain rule
+                # Rayleigh wave
+                dcRdA   = (Uz**2)/2./VgrR/R0
+                dcRdC   = ((durdz/kR)**2)/2./VgrR/R0
+                dcRdF   = (2.*durdz*Uz/kR)/2./VgrR/R0
+                dcRdL   = ((duzdz/kR-Ur)**2)/2./VgrR/R0
+                dcRdN   = dcRdbh *0.5 /np.sqrt(rho*N)
+                # Love wave
+                dcLdA   = np.array([])
+                dcLdC   = np.array([])
+                dcLdF   = np.array([])
+                dcLdL   = ((dutdz/kL)**2)/2./VgrL/L0
+                dcLdN   = (Ut**2)/2./VgrL/L0
+                # Update trees
+                addRtree= {'dcdA': dcRdA, 'dcdC': dcRdC, 'dcdF': dcRdF, 'dcdL': dcRdL, 'dcdN': dcRdN}
+                addLtree= {'dcdA': dcLdA, 'dcdC': dcLdC, 'dcdF': dcLdF, 'dcdL': dcLdL, 'dcdN': dcLdN}
+                rayTree.update(addRtree)
+                loveTree.update(addLtree)
+        if outfname!=None: self.write_to(outfname)
+        return
     
     def perturb(self, inmodel, wavetype, mode=0, perlst=[10.]):
         """
-        Plot eigenfunction/sensitivity kernels
+        Compute phase velocity dispersion curve given a perturbed model
         ================================================================================
         Input parameters:
+        inmodel     - input perturbed model
         wavetype    - type of wave (Love or Rayleigh)
-        dtype       - data type
-                    ------------------------- eigenfunctions ---------------------------
-                    ur, tr, uz, tz  - Rayleigh wave eigenfunctions
-                    ut, tt          - Love wave eigenfunctions
-                    ----------------------- sensitivity kernels ------------------------
-                    dcdh            - layer thickness
-                    dcda, dcdb      - P/S wave velocity
-                    dcdr            - density
-                    dcdav/dcdah     - PV/PH wave velocity
-                    dcdbv/dcdbh     - SV/SH wave velocity
-                    dcdn            - eta (eta = F/(A-2L); A, L, F are Love parameters)
-        style       - line style for plot 
         mode        - mode id (0: fundamental mode, 1, 2,... overtones)
-        zmax        - maximum depth for trim
+        perlst      - period list
         ================================================================================
         """
         wavetype = wavetype.lower()
@@ -634,7 +879,81 @@ class modesumASDF(asdf.AsdfFile):
             
         return c0Arr, cArr
     
+    def perturb_love(self, inmodel, wavetype, mode=0, perlst=[10.]):
+        """
+        Compute phase velocity dispersion curve given a perturbed model,
+        using partial derivatives for Love parameters.
+        ================================================================================
+        Input parameters:
+        inmodel     - input perturbed model
+        wavetype    - type of wave (Love or Rayleigh)
+        mode        - mode id (0: fundamental mode, 1, 2,... overtones)
+        perlst      - period list
+        ================================================================================
+        """
+        wavetype = wavetype.lower()
+        if wavetype == 'rayleigh': wavetype = 'ray'
+        refmodel    = self.tree['der']['model']
+        if refmodel['isotropic']:
+            raise ValueError('This function only works for TI model')
+        if not np.allclose(refmodel['H'], inmodel.HArr):
+            raise ValueError('Model layers are not the same!')
+        HArr    = inmodel.HArr
+        c0Arr   = []
+        cArr    = []
+        A       = refmodel['A']
+        L       = refmodel['L']
+        C       = refmodel['C']
+        F       = refmodel['F']
+        N       = refmodel['N']
+        rho0    = refmodel['rho']
+        
+        rho     = inmodel.rhoArr
+        A1      = (inmodel.VphArr**2)*rho
+        L1      = (inmodel.VsvArr**2)*rho
+        C1      = (inmodel.VpvArr**2)*rho
+        F1      = (inmodel.VpfArr**2)*rho
+        N1      = (inmodel.VshArr**2)*rho
+        
+        drho    = inmodel.rhoArr - rho0
+        dA      = A1 - A
+        dC      = C1 - C
+        dF      = F1 - F
+        dL      = L1 - L
+        dN      = N1 - N
+        for period in perlst:
+            dcdA    = self.tree['der']['egn'][wavetype][mode][period]['dcdA']
+            dcdC    = self.tree['der']['egn'][wavetype][mode][period]['dcdC']
+            dcdF    = self.tree['der']['egn'][wavetype][mode][period]['dcdF']
+            dcdL    = self.tree['der']['egn'][wavetype][mode][period]['dcdL']
+            dcdN    = self.tree['der']['egn'][wavetype][mode][period]['dcdN']
+            dcdr    = self.tree['der']['egn'][wavetype][mode][period]['dcdr']
+            # # # dc      = np.sum(dcda*dvp*HArr) + np.sum(dcdb*dvs*HArr) + np.sum(dcdr*drho*HArr)
+            if wavetype=='ray':
+                dc  = np.sum(dcdA*dA) + np.sum(dcdC*dC) + np.sum(dcdF*dF) + np.sum(dcdL*dL) \
+                        + np.sum(dcdr*drho) + np.sum(dcdN*dN)
+            else:
+                dc  = np.sum(dcdL*dL) + np.sum(dcdr*drho) + np.sum(dcdN*dN)
+            c0      = self.tree['der']['egn'][wavetype][mode][period]['C']
+            c       = c0+dc
+            c0Arr.append(c0)
+            cArr.append(c)
+            
+        return c0Arr, cArr
+    
+    
     def compare_disp(self, inmodel, indbase, wavetype, mode=0, perlst=[10.]):
+        """
+        Compare dispersion curve from sensitivity kernel based computation with input database
+        =======================================================================================
+        Input parameters:
+        inmodel     - input perturbed model
+        indbase     - input database
+        wavetype    - type of wave (Love or Rayleigh)
+        mode        - mode id (0: fundamental mode, 1, 2,... overtones)
+        perlst      - period list
+        =======================================================================================
+        """
         wavetype = wavetype.lower()
         if wavetype == 'rayleigh': wavetype = 'ray'
         c0Arr, cpreArr = self.perturb(inmodel=inmodel, wavetype=wavetype, mode=mode, perlst=perlst)
@@ -643,6 +962,121 @@ class modesumASDF(asdf.AsdfFile):
             c       = indbase.tree['der']['egn'][wavetype][mode][period]['C']
             cArr.append(c)
         return c0Arr, cpreArr, cArr
+    
+    def test_derivative(self, zmax, period, mode=0):
+        refmodel    = self.tree['der']['model']
+        ###
+        # Get data for plot
+        ###
+        HArr    = self.tree['der']['model']['H']
+        A       = refmodel['A']
+        L       = refmodel['L']
+        C       = refmodel['C']
+        F       = refmodel['F']
+        eta     = refmodel['F'] / (refmodel['A'] - 2.* refmodel['L'])
+        rho     = refmodel['rho']
+        VphR    = self.tree['der']['egn']['ray'][mode][period]['C']
+        VgrR    = self.tree['der']['egn']['ray'][mode][period]['U']
+        kR       = 2.*np.pi/VphR/period
+        VphL    = self.tree['der']['egn']['love'][mode][period]['C']
+        kL       = 2.*np.pi/VphL/period
+        Ur      = self.tree['der']['egn']['ray'][mode][period]['ur']
+        Uz      = self.tree['der']['egn']['ray'][mode][period]['uz']
+        Tr      = self.tree['der']['egn']['ray'][mode][period]['tr']
+        Tz      = self.tree['der']['egn']['ray'][mode][period]['tz']
+        Ut      = self.tree['der']['egn']['love'][mode][period]['ut']
+        Tt      = self.tree['der']['egn']['love'][mode][period]['tt']
+        
+        diffur1 = (Ur[1:] - Ur[:-1]) /1./HArr[1:]
+        diffur2 = 1./L*Tr - kR*Uz
+        
+        diffuz1 = (Uz[1:] - Uz[:-1]) /1./HArr[1:]
+        diffuz2 = kR*F/C*Ur + Tz/C
+        
+        diffut1 = (Ut[1:] - Ut[:-1]) /1./HArr[1:]
+        diffut2 = Tt/L
+        
+        R0      = np.sum(rho*(Ur**2+Uz**2))
+        dcdA1   = (Uz**2)/R0
+        dcdah1  = self.tree['der']['egn']['ray'][mode][period]['dcdah']
+        
+        dcdah2  = 1./VgrR/R0*( eta*rho*np.sqrt(A/rho)*(Ur**2- 2*eta/kR*Ur*diffuz2) )
+        
+        # dcdeta  = 
+        
+        # return diffuz1, diffuz2
+        # return diffut1, diffut2
+        # return diffur1, diffur2
+        return dcdah1, dcdah2
+    
+    def benchmark_montagner_nataf(self, zmax, period, mode=0):
+        refmodel    = self.tree['der']['model']
+        ###
+        # Get data for plot
+        ###
+        # model parameters
+        HArr    = self.tree['der']['model']['H']
+        zArr    = np.cumsum(HArr)
+        A       = refmodel['A']
+        L       = refmodel['L']
+        C       = refmodel['C']
+        F       = refmodel['F']
+        N       = refmodel['N']
+        eta     = F/(A-2.*L)
+        rho     = refmodel['rho']
+        VphR    = self.tree['der']['egn']['ray'][mode][period]['C']
+        VgrR    = self.tree['der']['egn']['ray'][mode][period]['U']
+        kR       = 2.*np.pi/VphR/period
+        VphL    = self.tree['der']['egn']['love'][mode][period]['C']
+        VgrL    = self.tree['der']['egn']['love'][mode][period]['U']
+        kL       = 2.*np.pi/VphL/period
+        # eigenfuntions
+        Ur      = self.tree['der']['egn']['ray'][mode][period]['ur']
+        Uz      = self.tree['der']['egn']['ray'][mode][period]['uz']
+        Tr      = self.tree['der']['egn']['ray'][mode][period]['tr']
+        Tz      = self.tree['der']['egn']['ray'][mode][period]['tz']
+        Ut      = self.tree['der']['egn']['love'][mode][period]['ut']
+        Tt      = self.tree['der']['egn']['love'][mode][period]['tt']
+        # derivative of eigenfunctions, $5.8 of R.Herrmann
+        durdz   = 1./L*Tr - kR*Uz
+        duzdz   = kR*F/C*Ur + Tz/C
+        dutdz   = Tt/L
+        # sensitivity kernel
+        dcRdav  = self.tree['der']['egn']['ray'][mode][period]['dcdav']
+        dcRdah  = self.tree['der']['egn']['ray'][mode][period]['dcdah']
+        dcRdbv  = self.tree['der']['egn']['ray'][mode][period]['dcdbv']
+        dcRdbh  = self.tree['der']['egn']['ray'][mode][period]['dcdbh']
+        dcRdeta = self.tree['der']['egn']['ray'][mode][period]['dcdn']
+        dcRdr   = self.tree['der']['egn']['ray'][mode][period]['dcdr']
+        R0      = np.sum(rho*(Ur**2+Uz**2))
+        # 1 : Montagner & Nataf, 2: derived from kernels computed by CPS
+        dcdA1   = VphR/VgrR*( 1./2./VphR * (Uz**2/R0)) # if replace Uz with Ur, it matches...
+        # dcdA1   = 1./VgrR/R0*(0.5*eta*Ur**2- eta/kR*Ur*duzdz*(1-eta))
+        # because: eta = F/(A-2L), ah = sqrt(A/rho)
+        # thus: dc/dA = dc/deta * deta/dA + dc/dah * dah/dA
+        #             = -dc/deta * F/(A-2L)**2 + dc/dah * 1/2/sqrt(rho*A)
+        dcdA2   = -dcRdeta * F/((A-2.*L)**2)  + dcRdah *0.5 /np.sqrt(rho*A) 
+        
+        dcdA3   = 1./VgrR/R0*(0.5*eta*Ur**2- eta/kR*Ur*duzdz*(1-eta))
+        plt.plot(dcdA1, zArr-HArr[0]/2, 'b-', lw=3, label='dcR/dA Montagner')
+        plt.plot(dcdA3, zArr-2., 'g.-', lw=3, label='dcR/dA derived')
+        plt.plot(dcdA2, zArr-HArr[0]/2, 'r--', lw=3, label='dcR/dA CPS')
+        plt.gca().invert_yaxis()
+        plt.xlabel('dC/dA', fontsize=30)
+        plt.ylabel('Depth (km)', fontsize=30)
+        plt.ylim([50, 0])
+        plt.legend(fontsize=20, loc=0)
+        plt.show()
+        
+    def get_disp_egn(self, wavetype, mode=0, perlst=[10.]):
+        cArr = []
+        for period in perlst:
+            c       = self.tree['der']['egn'][wavetype][mode][period]['C']
+            cArr.append(c)
+        return np.array(cArr)
+        
+        
+        
         
                 
     
