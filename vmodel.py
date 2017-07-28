@@ -350,6 +350,26 @@ class Model1d(object):
         if vsh  is None: vsh    = vsv
         if rho  is None: rho    = 1.6612*vpv-0.4721*vpv**2+0.0671*vpv**3-0.0043*vpv**4+0.000106*vpv**5
         if vpf  is None: vpf    = np.sqrt(vpv**2 - 2.*vsv**2)
+        if self.HArr.size==0:
+            self.HArr       = np.append(self.HArr, H)
+            if self.modeltype == 'ISOTROPIC':
+                self.VpArr  = np.append(self.VpArr, vpv)
+                self.VsArr  = np.append(self.VsArr, vsv)
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC':
+                self.VpvArr = np.append(self.VpvArr, vpv)
+                self.VsvArr = np.append(self.VsvArr, vsv)
+                self.VphArr = np.append(self.VphArr, vph)
+                self.VshArr = np.append(self.VshArr, vsh)
+                self.VpfArr = np.append(self.VpfArr, vpf)
+            self.rhoArr     = np.append(self.rhoArr, rho)
+            self.QpArr      = np.append(self.QpArr, Qp)
+            self.QsArr      = np.append(self.QsArr, Qs)
+            self.etapArr    = np.append(self.etapArr, etap)
+            self.etasArr    = np.append(self.etasArr, etas)
+            self.frefpArr   = np.append(self.frefpArr, frefp)
+            self.frefsArr   = np.append(self.frefsArr, frefs)
+            self.DepthArr   = np.cumsum(self.HArr)
+            return
         if zmin >= self.DepthArr[-1]:
             self.HArr       = np.append(self.HArr, H)
             if self.modeltype == 'ISOTROPIC':
@@ -1104,8 +1124,12 @@ class Model1d(object):
             if unit == 1000.: f.writelines('UNITS\tm\n')
             elif unit == 1.: f.writelines('UNITS\tkm\n')
             else: raise ValueError('Unexpected units!')
-            if self.modeltype == 'ISOTROPIC':
+            if self.modeltype == 'ISOTROPIC' and noq:
+                f.writelines('COLUMNS\tradius\trho\tvpv\tvsv\n')
+            elif self.modeltype == 'ISOTROPIC' and not noq:
                 f.writelines('COLUMNS\tradius\trho\tvpv\tvsv\tqka\tqmu\n')
+            elif self.modeltype == 'TRANSVERSE ISOTROPIC' and noq:
+                f.writelines('COLUMNS\tradius\trho\tvpv\tvsv\tvph\tvsh\teta\n')
             else:
                 f.writelines('COLUMNS\tradius\trho\tvpv\tvsv\tqka\tqmu\tvph\tvsh\teta\n')
             ###
@@ -1119,11 +1143,25 @@ class Model1d(object):
                 rho = self.rhoArr[i]*unit
                 qka = self.QpArr[i]
                 qmu = self.QsArr[i]
-                if self.modeltype == 'ISOTROPIC':
+                if self.modeltype == 'ISOTROPIC' and noq:
+                    vpv = self.VpArr[i]*unit
+                    vsv = self.VsArr[i]*unit
+                    f.writelines('%g\t%g\t%g\t%g\n' %(r0, rho, vpv, vsv))
+                    f.writelines('%g\t%g\t%g\t%g\n' %(r1, rho, vpv, vsv))
+                elif self.modeltype == 'ISOTROPIC' and not noq:
                     vpv = self.VpArr[i]*unit
                     vsv = self.VsArr[i]*unit
                     f.writelines('%g\t%g\t%g\t%g\t%g\t%g\n' %(r0, rho, vpv, vsv, qka, qmu))
                     f.writelines('%g\t%g\t%g\t%g\t%g\t%g\n' %(r1, rho, vpv, vsv, qka, qmu))
+                elif self.modeltype == 'TRANSVERSE ISOTROPIC' and noq:
+                    vpv = self.VpvArr[i]*unit
+                    vsv = self.VsvArr[i]*unit
+                    vph = self.VphArr[i]*unit
+                    vsh = self.VshArr[i]*unit
+                    vpf = self.VpfArr[i]*unit
+                    eta = vpf**2/(vph**2 - 2.*vsv**2)
+                    f.writelines('\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n' %(r0, rho, vpv, vsv, vph, vsh, eta))
+                    f.writelines('\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n' %(r1, rho, vpv, vsv, vph, vsh, eta))
                 else:
                     vpv = self.VpvArr[i]*unit
                     vsv = self.VsvArr[i]*unit

@@ -5,8 +5,15 @@ import numpy as np
 model=vmodel.Model1d(modelindex=2)
 # model.read('ak135.mod')
 model.ak135()
-model.write_axisem_bm('tt.bm')
-# model2=model.relayerize(h=1.)
+model.trim(zmax=200.)
+model2=model.relayerize(h=2.)
+model2.write_axisem_bm('ak135_cps.bm')
+
+# model.addlayer(H=200., vsv=7.850000, vsh=7.850000, vpv=13.500000, vph=13.500000, vpf=None, rho=5.75,
+#                 Qp=310., Qs=150., etap=0.0, etas=0.0, frefp=1.0, frefs=1.0, zmin=9999.)
+# # model.trim(zmax=200.)
+# model2=model.relayerize(h=2.)
+# model2.write_axisem_bm('homo_cps.bm')
 
 # model.read_layer_txt('../SW4Py/cpsin_staircase_1km.txt')
 # model.write('./test.mod')
